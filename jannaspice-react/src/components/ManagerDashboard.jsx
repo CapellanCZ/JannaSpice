@@ -111,7 +111,6 @@ export default function ManagerDashboard() {
         </div>
         <button type="button" onClick={openCatalogModal} className="btn-secondary btn-sm hidden lg:inline-flex">Catalog</button>
         <button type="button" onClick={openBlackoutModal} className="btn-secondary btn-sm hidden lg:inline-flex">Blackouts</button>
-        <button type="button" onClick={() => switchAppView('home')} className="btn-secondary btn-sm hidden lg:inline-flex">View site</button>
         <IconButton className="lg:hidden" onClick={() => setSidebarOpen(o => !o)} label="Menu" icon="fa-bars" />
       </AppHeader>
 

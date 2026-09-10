@@ -24,8 +24,14 @@ export default function CustomAlertModal() {
         <div className="flex gap-3 justify-center">
           {alertModal.type === 'confirm' ? (
             <>
-              <button type="button" onClick={() => closeCustomAlert(false)} className="btn-secondary w-full">Cancel</button>
-              <button type="button" onClick={() => closeCustomAlert(true)} className="btn-danger w-full">Proceed</button>
+              <button type="button" onClick={() => closeCustomAlert(false)} className="btn-secondary w-full">No, go back</button>
+              <button
+                type="button"
+                onClick={() => closeCustomAlert(true)}
+                className={`${alertModal.confirmDanger ? 'btn-danger' : 'btn-primary'} w-full`}
+              >
+                {alertModal.confirmLabel || 'Yes, I’m sure'}
+              </button>
             </>
           ) : (
             <button type="button" onClick={() => closeCustomAlert(true)} className="btn-primary w-full">OK</button>

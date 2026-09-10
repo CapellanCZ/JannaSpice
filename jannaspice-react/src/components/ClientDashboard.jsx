@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { AppHeader, EmptyState, IconButton } from './ui/index.jsx';
 import BookingSummaryCard from './client/BookingSummaryCard.jsx';
 import ProfileMenu from './client/ProfileMenu.jsx';
+import NotificationsDropdown from './client/NotificationsDropdown.jsx';
 import InvoiceModal from './modals/InvoiceModal.jsx';
 
 export default function ClientDashboard() {
@@ -13,6 +14,7 @@ export default function ClientDashboard() {
   } = useApp();
   const [notifOpen, setNotifOpen] = useState(false);
   const [invoiceRes, setInvoiceRes] = useState(null);
+  const closeNotifs = useCallback(() => setNotifOpen(false), []);
 
   if (!currentUser) {
     switchAppView('home');
@@ -24,8 +26,11 @@ export default function ClientDashboard() {
   const unreadCount = myNotifs.filter(n => !n.read).length;
 
   function toggleNotifs() {
-    setNotifOpen(o => !o);
-    if (!notifOpen) markClientNotificationsRead();
+    setNotifOpen((o) => {
+      const next = !o;
+      if (next) markClientNotificationsRead();
+      return next;
+    });
   }
 
   function startNewBooking() {
@@ -51,27 +56,18 @@ export default function ClientDashboard() {
           <IconButton onClick={toggleNotifs} label="Notifications" icon="fa-bell" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-spice-500 text-white w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center">
-              {unreadCount}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
-          {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-soft border border-sand-200 z-50 p-4 max-h-96 overflow-y-auto">
-              <div className="flex justify-between items-center mb-3 border-b border-sand-200 pb-2">
-                <span className="font-bold text-sm text-spice-900">Notifications</span>
-                <button type="button" onClick={() => clearClientNotifications()} className="text-xs font-semibold text-spice-500 hover:underline">Clear</button>
-              </div>
-              <div className="space-y-2">
-                {myNotifs.length === 0 ? (
-                  <p className="text-xs text-spice-900/50 text-center py-4">No notifications yet.</p>
-                ) : myNotifs.map(n => (
-                  <div key={n.id} className={`p-3 rounded-xl border text-xs space-y-1 ${n.read ? 'bg-sand-50' : 'bg-spice-50 border-spice-200'}`}>
-                    <p className="font-semibold text-spice-900">{n.text}</p>
-                    <span className="text-[10px] text-spice-900/50">{n.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <NotificationsDropdown
+            open={notifOpen}
+            onClose={closeNotifs}
+            notifications={myNotifs}
+            onClear={() => {
+              clearClientNotifications();
+              closeNotifs();
+            }}
+          />
         </div>
       </AppHeader>
 

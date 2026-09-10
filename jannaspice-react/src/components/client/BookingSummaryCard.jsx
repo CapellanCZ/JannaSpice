@@ -1,5 +1,7 @@
 import { Banner, StatusBadge } from '../ui/index.jsx';
 import InvoiceDropdown from './InvoiceDropdown.jsx';
+import { useApp } from '../../context/AppContext.jsx';
+import { countUnreadFromOther } from '../../utils/chatUnread.js';
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -26,7 +28,9 @@ export default function BookingSummaryCard({
   onRequestChanges,
   onViewInvoice
 }) {
-  const msgCount = r.messages?.length || 0;
+  const { chatReadVersion } = useApp();
+  const unreadFromOther = countUnreadFromOther(r.id, r.messages || [], 'client');
+  void chatReadVersion;
   const steps = [
     { key: 'fee', short: 'Fee', label: 'Fee', paid: !!r.payments?.fee },
     { key: 'down', short: 'Down', label: 'Down', paid: !!r.payments?.down },
@@ -131,9 +135,9 @@ export default function BookingSummaryCard({
         <button type="button" onClick={onDetails} className="btn-primary btn-sm">Details</button>
         <button type="button" onClick={onMessages} className="btn-secondary btn-sm">
           Messages
-          {msgCount > 0 && (
+          {unreadFromOther > 0 && (
             <span className="bg-spice-500 text-white rounded-full min-w-[1.15rem] h-[1.15rem] px-1 flex items-center justify-center text-[10px] font-bold">
-              {msgCount}
+              {unreadFromOther > 9 ? '9+' : unreadFromOther}
             </span>
           )}
         </button>

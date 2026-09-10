@@ -2,12 +2,14 @@ import { supabase } from '../../lib/supabase/client.js';
 import { getErrorMessage } from '../../lib/supabase/errors.js';
 
 export function mapNotification(row, email) {
+  const createdAt = row.created_at;
   return {
     id: row.id,
     userId: row.user_id,
     email,
     text: row.body,
-    time: new Date(row.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+    time: new Date(createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+    createdAt,
     read: row.is_read
   };
 }

@@ -4,11 +4,15 @@ function formatTime(value) {
 }
 
 function mapMessage(row) {
+  const createdAt = row.created_at || row.createdAt || null;
   return {
     id: row.id,
     sender: row.sender,
     text: row.body ?? row.text,
-    timestamp: row.timestamp || new Date(row.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    timestamp: row.timestamp || (createdAt
+      ? new Date(createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : ''),
+    createdAt
   };
 }
 
@@ -27,11 +31,17 @@ function mapProof(row) {
 }
 
 export function mapReservation(row) {
-  const messages = Array.isArray(row.messages)
+  const messages = (Array.isArray(row.messages)
     ? row.messages.map(mapMessage)
     : Array.isArray(row.reservation_messages)
       ? row.reservation_messages.map(mapMessage)
-      : [];
+      : []
+  ).sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (ta !== tb) return ta - tb;
+    return Number(a.id) - Number(b.id);
+  });
 
   const proofs = Array.isArray(row.paymentProofs)
     ? row.paymentProofs.map(mapProof)

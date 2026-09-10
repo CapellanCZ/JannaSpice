@@ -13,11 +13,11 @@ import BlackoutModal from './components/modals/BlackoutModal.jsx';
 import CustomAlertModal from './components/modals/CustomAlertModal.jsx';
 import ProfileModal from './components/modals/ProfileModal.jsx';
 import CatalogModal from './components/modals/CatalogModal.jsx';
+import ToastHost from './components/ui/ToastHost.jsx';
 import { BrandMark } from './components/ui/index.jsx';
 
 export default function App() {
-  const { view, switchAppView, currentUser, authReady } = useApp();
-  const isManager = currentUser?.role === 'manager';
+  const { view, authReady } = useApp();
 
   if (!authReady) {
     return (
@@ -30,17 +30,6 @@ export default function App() {
 
   return (
     <>
-      {view !== 'manager' && isManager && (
-        <button
-          type="button"
-          onClick={() => switchAppView('manager')}
-          className="ui-fab bg-spice-900 text-white px-5 py-3 rounded-full text-sm font-semibold shadow-float hover:bg-spice-500 transition-colors duration-300 flex items-center gap-2 active:scale-95"
-          aria-label="Switch to Manager View"
-        >
-          <i className="fa-solid fa-clipboard-list"></i> Manager view
-        </button>
-      )}
-
       {view === 'home' && <Home />}
       {view === 'booking' && <BookingWizard />}
       {view === 'client-dashboard' && <ClientDashboard />}
@@ -55,6 +44,7 @@ export default function App() {
       <ProfileModal />
       <CatalogModal />
       <CustomAlertModal />
+      <ToastHost />
       <div id="print-receipt-container"></div>
     </>
   );

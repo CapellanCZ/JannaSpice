@@ -9,6 +9,7 @@ import * as catalogApi from '../features/catalog/index.js';
 import * as paymentsApi from '../features/payments/index.js';
 import { dispatchEmails } from '../features/emails/index.js';
 import { checkDateAvailability } from '../features/availability/index.js';
+import { markChatSeen } from '../utils/chatUnread.js';
 
 const AppContext = createContext(null);
 
@@ -31,6 +32,8 @@ export function AppProvider({ children }) {
   const [isSignupMode, setIsSignupMode] = useState(false);
   const [authView, setAuthView] = useState('login');
   const pendingAuthCallback = useRef(null);
+  const chatModalRef = useRef({ open: false, resId: null, role: 'client' });
+  const currentUserRef = useRef(null);
 
   const fallback = catalogApi.fallbackCatalog();
   const [packages, setPackages] = useState(fallback.packages);
@@ -40,6 +43,10 @@ export function AppProvider({ children }) {
   const [reservationsQueue, setReservationsQueue] = useState([]);
   const [blackoutDates, setBlackoutDates] = useState([]);
   const [clientNotifications, setClientNotifications] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  const [chatReadVersion, setChatReadVersion] = useState(0);
+  const seenNotifIdsRef = useRef(new Set());
+  const notifsSeededRef = useRef(false);
 
   const [authModal, setAuthModal] = useState({ open: false });
   const [chatModal, setChatModal] = useState({ open: false, resId: null, role: 'client' });
@@ -52,9 +59,24 @@ export function AppProvider({ children }) {
   const [alertModal, setAlertModal] = useState({ open: false, message: '', title: 'Notice', type: 'info' });
   const alertCallback = useRef(null);
 
-  const customAlert = useCallback((message, title = 'Notice', type = 'info', callback = null) => {
+  useEffect(() => {
+    chatModalRef.current = chatModal;
+  }, [chatModal]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  const customAlert = useCallback((message, title = 'Notice', type = 'info', callback = null, extras = {}) => {
     alertCallback.current = callback;
-    setAlertModal({ open: true, message, title, type });
+    setAlertModal({
+      open: true,
+      message,
+      title,
+      type,
+      confirmLabel: extras.confirmLabel || 'Yes, I’m sure',
+      confirmDanger: extras.confirmDanger !== false && type === 'confirm'
+    });
   }, []);
 
   const closeCustomAlert = useCallback((confirmed = false) => {
@@ -65,8 +87,32 @@ export function AppProvider({ children }) {
   }, []);
 
   const switchAppView = useCallback((v) => {
-    setView(v);
+    const user = currentUserRef.current;
+    if (user && v === 'home') {
+      setView(user.role === 'manager' ? 'manager' : 'client-dashboard');
+    } else {
+      setView(v);
+    }
     window.scrollTo(0, 0);
+  }, []);
+
+  const dismissToast = useCallback((id) => {
+    setToasts((list) => list.filter((t) => t.id !== id));
+  }, []);
+
+  const pushToast = useCallback((toast) => {
+    const id = toast.id || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((list) => [
+      ...list.slice(-4),
+      {
+        id,
+        title: toast.title || 'Notification',
+        message: toast.message || '',
+        tone: toast.tone || 'info',
+        duration: toast.duration ?? 5500
+      }
+    ]);
+    return id;
   }, []);
 
   const refreshReservations = useCallback(async () => {
@@ -81,11 +127,36 @@ export function AppProvider({ children }) {
     return rows;
   }, []);
 
-  const refreshNotifications = useCallback(async (email) => {
+  const refreshNotifications = useCallback(async (email, { announce = true } = {}) => {
     const rows = await notificationsApi.listNotifications(email);
+    const seen = seenNotifIdsRef.current;
+    const fresh = rows.filter((n) => !seen.has(n.id));
+    const shouldAnnounce = announce && notifsSeededRef.current && fresh.length > 0;
+
+    rows.forEach((n) => seen.add(n.id));
+    notifsSeededRef.current = true;
     setClientNotifications(rows);
+
+    if (shouldAnnounce) {
+      fresh
+        .slice(0, 4)
+        .reverse()
+        .forEach((n) => {
+          const text = (n.text || '').toLowerCase();
+          let tone = 'info';
+          if (text.includes('approved') || text.includes('paid') || text.includes('success')) tone = 'success';
+          else if (text.includes('cancel') || text.includes('expired')) tone = 'warning';
+          pushToast({
+            id: `notif-${n.id}`,
+            title: 'Booking update',
+            message: n.text,
+            tone
+          });
+        });
+    }
+
     return rows;
-  }, []);
+  }, [pushToast]);
 
   const refreshCatalog = useCallback(async (includeInactive = false) => {
     try {
@@ -116,17 +187,18 @@ export function AppProvider({ children }) {
       setBlackoutDates(blackouts);
       setReservationsQueue([]);
       setClientNotifications([]);
+      seenNotifIdsRef.current = new Set();
+      notifsSeededRef.current = false;
       return;
     }
-    const [reservations, blackouts, notifications] = await Promise.all([
+    const [reservations, blackouts] = await Promise.all([
       bookingsApi.listReservations(),
-      blackoutsApi.listBlackouts(),
-      notificationsApi.listNotifications(user.email)
+      blackoutsApi.listBlackouts()
     ]);
     setReservationsQueue(reservations);
     setBlackoutDates(blackouts);
-    setClientNotifications(notifications);
-  }, [refreshCatalog]);
+    await refreshNotifications(user.email, { announce: false });
+  }, [refreshCatalog, refreshNotifications]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,11 +230,11 @@ export function AppProvider({ children }) {
     return () => { cancelled = true; };
   }, [customAlert, loadWorkspace]);
 
-  // Clients never stay on the public marketing site while signed in.
+  // Signed-in users never stay on the public marketing site.
   useEffect(() => {
     if (!authReady || !currentUser) return;
-    if (currentUser.role === 'manager') return;
-    if (view === 'home') setView('client-dashboard');
+    if (view !== 'home') return;
+    setView(currentUser.role === 'manager' ? 'manager' : 'client-dashboard');
   }, [authReady, currentUser, view]);
 
   useEffect(() => {
@@ -189,8 +261,30 @@ export function AppProvider({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
         refreshReservations().catch(() => {});
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservation_messages' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservation_messages' }, (payload) => {
         refreshReservations().catch(() => {});
+        if (payload?.eventType !== 'INSERT' || !payload.new) return;
+
+        const user = currentUserRef.current;
+        if (!user) return;
+
+        const row = payload.new;
+        const mine =
+          (user.role === 'manager' && row.sender === 'manager') ||
+          (user.role !== 'manager' && row.sender === 'client');
+        if (mine) return;
+
+        const chat = chatModalRef.current;
+        const openForThis =
+          chat.open && String(chat.resId) === String(row.reservation_id);
+        if (openForThis) return;
+
+        pushToast({
+          id: `msg-${row.id}`,
+          title: 'New message',
+          message: row.body || 'You have a new chat message.',
+          tone: 'info'
+        });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blackout_dates' }, () => {
         refreshBlackouts().catch(() => {});
@@ -206,7 +300,7 @@ export function AppProvider({ children }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser, refreshReservations, refreshBlackouts, refreshNotifications]);
+  }, [currentUser, refreshReservations, refreshBlackouts, refreshNotifications, pushToast]);
 
   const requireAuth = useCallback((callback) => {
     if (!currentUser) {
@@ -318,15 +412,19 @@ export function AppProvider({ children }) {
       return;
     }
     setCurrentUser(null);
+    currentUserRef.current = null;
     setReservationsQueue([]);
     setClientNotifications([]);
+    setToasts([]);
+    seenNotifIdsRef.current = new Set();
+    notifsSeededRef.current = false;
     switchAppView('home');
     customAlert('You have logged out successfully.');
   }, [switchAppView, customAlert]);
 
   const markClientNotificationsRead = useCallback(async () => {
     await notificationsApi.markNotificationsRead();
-    if (currentUser) await refreshNotifications(currentUser.email);
+    if (currentUser) await refreshNotifications(currentUser.email, { announce: false });
   }, [currentUser, refreshNotifications]);
 
   const clearClientNotifications = useCallback(async () => {
@@ -438,9 +536,15 @@ export function AppProvider({ children }) {
   const sendMessage = useCallback(async (resId, _role, text) => {
     try {
       await bookingsApi.sendMessage(resId, text);
-      await refreshReservations();
+      try {
+        await refreshReservations();
+      } catch {
+        // Message already saved; list will catch up via realtime.
+      }
+      return { ok: true };
     } catch (err) {
       customAlert(err.message, 'Error', 'error');
+      return { ok: false, error: err };
     }
   }, [refreshReservations, customAlert]);
 
@@ -464,6 +568,10 @@ export function AppProvider({ children }) {
 
   const openChat = useCallback((resId, role) => setChatModal({ open: true, resId, role }), []);
   const closeChat = useCallback(() => setChatModal(c => ({ ...c, open: false })), []);
+  const markReservationChatRead = useCallback((resId, messages = []) => {
+    markChatSeen(resId, messages);
+    setChatReadVersion((v) => v + 1);
+  }, []);
   const openDetail = useCallback((resId) => setDetailPanel({ open: true, resId }), []);
   const closeDetail = useCallback(() => setDetailPanel(d => ({ ...d, open: false })), []);
   const openClientDetail = useCallback((resId) => setClientDetailModal({ open: true, resId }), []);
@@ -492,7 +600,8 @@ export function AppProvider({ children }) {
     savePackage, saveMenuItem, refreshCatalog,
     blackoutDates, addBlackout, deleteBlackout,
     clientNotifications, markClientNotificationsRead, clearClientNotifications,
-    authModal, chatModal, openChat, closeChat,
+    toasts, pushToast, dismissToast,
+    authModal, chatModal, openChat, closeChat, markReservationChatRead, chatReadVersion,
     detailPanel, openDetail, closeDetail,
     clientDetailModal, openClientDetail, closeClientDetail,
     blackoutModal, openBlackoutModal, closeBlackoutModal,
