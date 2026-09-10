@@ -264,10 +264,23 @@ body {
   100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
 }
 
+#print-receipt-container {
+  display: none;
+}
+
 @media print {
   body * { visibility: hidden; }
   #print-receipt-container, #print-receipt-container * { visibility: visible; }
-  #print-receipt-container { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; color: #2D2825 !important; padding: 20px; }
+  #print-receipt-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff !important;
+    color: #2D2825 !important;
+    padding: 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

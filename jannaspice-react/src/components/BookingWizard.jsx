@@ -169,8 +169,8 @@ export default function BookingWizard() {
 
   return (
     <div className="bg-sand-50 flex flex-col min-h-[100dvh]">
-      <AppHeader icon="fa-calendar-check" title="Booking" subtitle={editingReservationId ? 'Request changes' : 'Secure your date'} onBrandClick={() => switchAppView('home')}>
-        <button type="button" onClick={() => switchAppView('home')} className="btn-secondary btn-sm">Cancel</button>
+      <AppHeader icon="fa-calendar-check" title="Booking" subtitle={editingReservationId ? 'Request changes' : 'Secure your date'} onBrandClick={() => switchAppView(currentUser ? 'client-dashboard' : 'home')}>
+        <button type="button" onClick={() => switchAppView(currentUser ? 'client-dashboard' : 'home')} className="btn-secondary btn-sm">Cancel</button>
       </AppHeader>
 
       <section className="py-12 flex-grow">

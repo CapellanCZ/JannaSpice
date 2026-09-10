@@ -136,6 +136,9 @@ export function AppProvider({ children }) {
         if (cancelled) return;
         setCurrentUser(user);
         await loadWorkspace(user);
+        if (user) {
+          setView(user.role === 'manager' ? 'manager' : 'client-dashboard');
+        }
       } catch (err) {
         if (cancelled) return;
         setCurrentUser(null);
@@ -154,6 +157,13 @@ export function AppProvider({ children }) {
     })();
     return () => { cancelled = true; };
   }, [customAlert, loadWorkspace]);
+
+  // Clients never stay on the public marketing site while signed in.
+  useEffect(() => {
+    if (!authReady || !currentUser) return;
+    if (currentUser.role === 'manager') return;
+    if (view === 'home') setView('client-dashboard');
+  }, [authReady, currentUser, view]);
 
   useEffect(() => {
     return authApi.onAuthStateChange(async (user, event) => {

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { AppHeader, Banner, EmptyState, IconButton, StatusBadge } from './ui/index.jsx';
+import InvoiceDropdown from './client/InvoiceDropdown.jsx';
+import InvoiceModal from './modals/InvoiceModal.jsx';
 
 export default function ClientDashboard() {
   const { currentUser, switchAppView, handleLogout, reservationsQueue, clientNotifications,
           markClientNotificationsRead, clearClientNotifications, openChat, openClientDetail, openProfileModal } = useApp();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [invoiceRes, setInvoiceRes] = useState(null);
 
   if (!currentUser) {
     switchAppView('home');
@@ -33,7 +36,7 @@ export default function ClientDashboard() {
 
   return (
     <div className="bg-sand-50 flex flex-col min-h-[100dvh]">
-      <AppHeader icon="fa-utensils" title="My bookings" subtitle="Client portal" onBrandClick={() => switchAppView('home')}>
+      <AppHeader icon="fa-utensils" title="My bookings" subtitle="Client portal" onBrandClick={() => switchAppView('client-dashboard')}>
         <button type="button" onClick={openProfileModal} className="btn-ghost btn-sm hidden sm:inline-flex">Profile</button>
         <button type="button" onClick={handleLogout} className="btn-ghost btn-sm hidden sm:inline-flex">Sign out</button>
         <div className="relative">
@@ -99,6 +102,7 @@ export default function ClientDashboard() {
                       Messages
                       {msgCount > 0 && <span className="bg-spice-500 text-white rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center text-[10px] font-bold">{msgCount}</span>}
                     </button>
+                    <InvoiceDropdown reservation={r} onView={setInvoiceRes} />
                     {r.status !== 'Cancelled' && (
                       <button type="button" onClick={() => requestChanges(r.id)} className="btn-secondary btn-sm">Request changes</button>
                     )}
@@ -123,6 +127,8 @@ export default function ClientDashboard() {
           })}
         </div>
       </main>
+
+      <InvoiceModal open={!!invoiceRes} reservation={invoiceRes} onClose={() => setInvoiceRes(null)} />
     </div>
   );
 }
