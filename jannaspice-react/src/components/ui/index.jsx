@@ -86,10 +86,10 @@ export function Field({ label, error, children }) {
 
 export function EmptyState({ icon = 'fa-regular fa-folder-open', title, body, action }) {
   return (
-    <div className="empty-state">
-      <i className={`${icon} text-4xl text-spice-900/20 mb-3 block`}></i>
+    <div className="empty-state flex flex-col items-center">
+      <i className={`${icon} text-4xl text-spice-900/20 mb-3`}></i>
       {title ? <h3 className="text-lg font-serif font-bold text-spice-900 mb-1">{title}</h3> : null}
-      {body ? <p className="text-sm text-spice-900/60 max-w-sm mx-auto">{body}</p> : null}
+      {body ? <p className="text-sm text-spice-900/60 max-w-sm">{body}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );

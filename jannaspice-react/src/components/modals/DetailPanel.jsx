@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { printReceipt } from '../../utils/printReceipt.js';
 import { countUnreadFromOther } from '../../utils/chatUnread.js';
-import { Banner, IconButton, StatusBadge } from '../ui/index.jsx';
+import { Banner, IconButton, ModalShell, StatusBadge } from '../ui/index.jsx';
 import {
   EventDetailsGrid,
   InfoTile,
@@ -45,7 +45,7 @@ function ProofThumb({ proof, getProofSignedUrl, onOpen }) {
   return (
     <button
       type="button"
-      onClick={() => onOpen(proof)}
+      onClick={() => onOpen(proof, url)}
       className="w-14 h-14 rounded-xl overflow-hidden border border-sand-200 bg-sand-50 shrink-0 hover:border-spice-300"
       aria-label="Open payment proof"
     >
@@ -60,7 +60,10 @@ function ProofThumb({ proof, getProofSignedUrl, onOpen }) {
   );
 }
 
-function MilestoneRow({ index, title, hint, done, action, locked, proof, getProofSignedUrl, onOpenProof }) {
+function MilestoneRow({
+  index, title, hint, done, action, locked, proof,
+  getProofSignedUrl, onOpenProof
+}) {
   return (
     <div className={`rounded-2xl border px-4 py-3.5 ${
       done ? 'bg-emerald-50/70 border-emerald-100' : 'bg-white border-sand-200'
@@ -84,11 +87,14 @@ function MilestoneRow({ index, title, hint, done, action, locked, proof, getProo
           <ProofThumb proof={proof} getProofSignedUrl={getProofSignedUrl} onOpen={onOpenProof} />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] uppercase tracking-wider font-bold text-spice-900/40">
-              {proof.status === 'pending' ? 'Proof submitted' : proof.status === 'verified' ? 'Verified proof' : 'Proof'}
+              {proof.status === 'pending' ? 'Proof waiting' : proof.status === 'verified' ? 'Verified proof' : 'Proof'}
             </p>
             <p className="text-sm font-semibold text-spice-900 truncate mt-0.5">
               {proof.referenceNo ? `Ref ${proof.referenceNo}` : 'No reference no.'}
             </p>
+            {proof.amount ? (
+              <p className="text-xs text-spice-900/45 mt-0.5">₱{Number(proof.amount).toLocaleString()}</p>
+            ) : null}
             <button type="button" onClick={() => onOpenProof(proof)} className="text-xs font-semibold text-spice-500 hover:underline mt-0.5">
               View screenshot
             </button>
@@ -96,6 +102,38 @@ function MilestoneRow({ index, title, hint, done, action, locked, proof, getProo
         </div>
       )}
     </div>
+  );
+}
+
+function ProofLightbox({ preview, onClose }) {
+  if (!preview) return null;
+  const pdf = isPdfPath(preview.proof?.storagePath);
+
+  return (
+    <ModalShell open onClose={onClose} size="xl" labelledBy="proof-preview-title" layer="alert" className="!bg-spice-900 !border-0 overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="min-w-0 pr-8">
+          <h3 id="proof-preview-title" className="text-sm font-semibold text-white truncate">
+            {preview.proof?.referenceNo ? `Ref ${preview.proof.referenceNo}` : 'Payment screenshot'}
+          </h3>
+          <p className="text-[11px] text-white/50 mt-0.5">
+            {PAYMENT_LABEL[preview.proof?.paymentType] || 'Proof'}
+          </p>
+        </div>
+        <IconButton onClick={onClose} label="Close" variant="inverse" className="dialog-close" />
+      </div>
+      <div className="bg-black/40 flex items-center justify-center min-h-[280px] max-h-[75dvh] p-3">
+        {preview.loading ? (
+          <p className="text-sm text-white/60">Loading…</p>
+        ) : preview.url && !pdf ? (
+          <img src={preview.url} alt="Payment proof" className="max-h-[70dvh] max-w-full object-contain rounded-lg" />
+        ) : preview.url && pdf ? (
+          <iframe title="Payment proof PDF" src={preview.url} className="w-full h-[70dvh] rounded-lg bg-white" />
+        ) : (
+          <p className="text-sm text-white/60">Could not load this file.</p>
+        )}
+      </div>
+    </ModalShell>
   );
 }
 
@@ -107,6 +145,7 @@ export default function DetailPanel() {
     confirmCancellation, rejectCancellation, menuOptions, chatReadVersion
   } = useApp();
   void chatReadVersion;
+  const [preview, setPreview] = useState(null);
 
   const res = detailPanel.resId ? reservationsQueue.find((r) => r.id === detailPanel.resId) : null;
 
@@ -127,7 +166,6 @@ export default function DetailPanel() {
   const cancelled = res.status === 'Cancelled';
   const unread = countUnreadFromOther(res.id, res.messages || [], 'manager');
   const proofs = res.paymentProofs || [];
-  const pendingProofs = proofs.filter((proof) => proof.status === 'pending');
   const change = res.changeRequest;
   const feeProof = latestProofFor(proofs, 'fee');
   const downProof = latestProofFor(proofs, 'down');
@@ -165,11 +203,18 @@ export default function DetailPanel() {
     );
   }
 
-  async function openProof(proof) {
+  async function openProof(proof, knownUrl) {
+    if (!proof?.storagePath) return;
+    if (knownUrl) {
+      setPreview({ proof, url: knownUrl, loading: false });
+      return;
+    }
+    setPreview({ proof, url: null, loading: true });
     try {
       const url = await getProofSignedUrl(proof.storagePath);
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      setPreview({ proof, url, loading: false });
     } catch (err) {
+      setPreview(null);
       customAlert(err.message, 'Error', 'error');
     }
   }
@@ -225,19 +270,6 @@ export default function DetailPanel() {
             </Banner>
           )}
 
-          {pendingProofs.map((proof) => (
-            <Banner key={proof.id} tone="accent" icon="fa-receipt">
-              <p className="font-semibold mb-1">Proof waiting: {PAYMENT_LABEL[proof.paymentType] || proof.paymentType}</p>
-              {proof.referenceNo ? <p className="mb-2 text-xs">Ref {proof.referenceNo}</p> : null}
-              {proof.amount ? <p className="mb-2 text-xs">₱{Number(proof.amount).toLocaleString()}</p> : null}
-              <div className="flex gap-2 flex-wrap">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => openProof(proof)}>View file</button>
-                <button type="button" className="btn-primary btn-sm" onClick={() => reviewPaymentProof(proof.id, 'verified')}>Verify & log</button>
-                <button type="button" className="btn-danger btn-sm" onClick={() => reviewPaymentProof(proof.id, 'rejected', 'Please upload a clearer proof.')}>Reject</button>
-              </div>
-            </Banner>
-          ))}
-
           <section>
             <h4 className="font-serif font-bold text-lg text-spice-900 mb-3">Client</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -291,22 +323,33 @@ export default function DetailPanel() {
                 <MilestoneRow
                   index={2}
                   title="20% reservation fee"
-                  hint={`₱${fee.toLocaleString()}`}
+                  hint={hasScreenshot(feeProof) || !!res.payments.fee ? `₱${fee.toLocaleString()}` : `₱${fee.toLocaleString()} · waiting for screenshot`}
                   done={!!res.payments.fee}
                   locked={!approved}
                   proof={feeProof}
                   getProofSignedUrl={getProofSignedUrl}
                   onOpenProof={openProof}
                   action={
-                    <button
-                      type="button"
-                      onClick={() => promptLogPaid('fee', 'the 20% reservation fee', fee)}
-                      disabled={!approved || !hasScreenshot(feeProof)}
-                      className="btn-primary btn-sm"
-                      title={!hasScreenshot(feeProof) ? 'Wait for a payment screenshot' : 'Log paid'}
-                    >
-                      Log paid
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => promptLogPaid('fee', 'the 20% reservation fee', fee)}
+                        disabled={!approved || !hasScreenshot(feeProof)}
+                        className="btn-primary btn-sm"
+                        title={!hasScreenshot(feeProof) ? 'Wait for a payment screenshot' : 'Log paid'}
+                      >
+                        Log paid
+                      </button>
+                      {feeProof?.status === 'pending' && (
+                        <button
+                          type="button"
+                          className="btn-danger btn-sm"
+                          onClick={() => reviewPaymentProof(feeProof.id, 'rejected', 'Please upload a clearer proof.')}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
                   }
                 />
                 <MilestoneRow
@@ -319,15 +362,26 @@ export default function DetailPanel() {
                   getProofSignedUrl={getProofSignedUrl}
                   onOpenProof={openProof}
                   action={
-                    <button
-                      type="button"
-                      onClick={() => promptLogPaid('down', 'the 30% downpayment', down)}
-                      disabled={!res.payments.fee || !hasScreenshot(downProof)}
-                      className="btn-primary btn-sm"
-                      title={!hasScreenshot(downProof) ? 'Wait for a payment screenshot' : 'Log paid'}
-                    >
-                      Log paid
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => promptLogPaid('down', 'the 30% downpayment', down)}
+                        disabled={!res.payments.fee || !hasScreenshot(downProof)}
+                        className="btn-primary btn-sm"
+                        title={!hasScreenshot(downProof) ? 'Wait for a payment screenshot' : 'Log paid'}
+                      >
+                        Log paid
+                      </button>
+                      {downProof?.status === 'pending' && (
+                        <button
+                          type="button"
+                          className="btn-danger btn-sm"
+                          onClick={() => reviewPaymentProof(downProof.id, 'rejected', 'Please upload a clearer proof.')}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
                   }
                 />
                 <MilestoneRow
@@ -340,15 +394,26 @@ export default function DetailPanel() {
                   getProofSignedUrl={getProofSignedUrl}
                   onOpenProof={openProof}
                   action={
-                    <button
-                      type="button"
-                      onClick={() => promptLogPaid('bal', 'the 50% balance', bal)}
-                      disabled={!res.payments.down || !hasScreenshot(balProof)}
-                      className="btn-primary btn-sm"
-                      title={!hasScreenshot(balProof) ? 'Wait for a payment screenshot' : 'Log paid'}
-                    >
-                      Log paid
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => promptLogPaid('bal', 'the 50% balance', bal)}
+                        disabled={!res.payments.down || !hasScreenshot(balProof)}
+                        className="btn-primary btn-sm"
+                        title={!hasScreenshot(balProof) ? 'Wait for a payment screenshot' : 'Log paid'}
+                      >
+                        Log paid
+                      </button>
+                      {balProof?.status === 'pending' && (
+                        <button
+                          type="button"
+                          className="btn-danger btn-sm"
+                          onClick={() => reviewPaymentProof(balProof.id, 'rejected', 'Please upload a clearer proof.')}
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
                   }
                 />
               </div>
@@ -376,6 +441,7 @@ export default function DetailPanel() {
           )}
         </footer>
       </aside>
+      <ProofLightbox preview={preview} onClose={() => setPreview(null)} />
     </>
   );
 }

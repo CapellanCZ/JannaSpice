@@ -6,6 +6,19 @@ import ProfileMenu from './client/ProfileMenu.jsx';
 import NotificationsDropdown from './client/NotificationsDropdown.jsx';
 import InvoiceModal from './modals/InvoiceModal.jsx';
 
+const BOOKING_TABS = [
+  { id: 'all', label: 'All' },
+  { id: 'reserved', label: 'Reserved' },
+  { id: 'ongoing', label: 'Ongoing' },
+  { id: 'cancelled', label: 'Cancelled' }
+];
+
+function bookingBucket(status) {
+  if (status === 'Cancelled') return 'cancelled';
+  if (status === 'Reserved') return 'reserved';
+  return 'ongoing';
+}
+
 export default function ClientDashboard() {
   const {
     currentUser, switchAppView, handleLogout, reservationsQueue, clientNotifications,
@@ -14,6 +27,7 @@ export default function ClientDashboard() {
   } = useApp();
   const [notifOpen, setNotifOpen] = useState(false);
   const [invoiceRes, setInvoiceRes] = useState(null);
+  const [bookingTab, setBookingTab] = useState('all');
   const closeNotifs = useCallback(() => setNotifOpen(false), []);
 
   if (!currentUser) {
@@ -22,6 +36,15 @@ export default function ClientDashboard() {
   }
 
   const myBookings = reservationsQueue.filter(r => r.userId === currentUser.id || r.email === currentUser.email);
+  const tabCounts = {
+    all: myBookings.length,
+    reserved: myBookings.filter((r) => bookingBucket(r.status) === 'reserved').length,
+    ongoing: myBookings.filter((r) => bookingBucket(r.status) === 'ongoing').length,
+    cancelled: myBookings.filter((r) => bookingBucket(r.status) === 'cancelled').length
+  };
+  const visibleBookings = bookingTab === 'all'
+    ? myBookings
+    : myBookings.filter((r) => bookingBucket(r.status) === bookingTab);
   const myNotifs = clientNotifications.filter(n => n.userId === currentUser.id || n.email === currentUser.email);
   const unreadCount = myNotifs.filter(n => !n.read).length;
 
@@ -86,17 +109,41 @@ export default function ClientDashboard() {
           </button>
         </div>
 
+        <div className="flex w-full bg-white rounded-full p-1 border border-sand-200">
+          {BOOKING_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setBookingTab(tab.id)}
+              className={`ui-tab flex-1 inline-flex items-center justify-center ${bookingTab === tab.id ? 'ui-tab-active' : 'ui-tab-idle'}`}
+            >
+              {tab.label}
+              <span className={`ml-1 ${bookingTab === tab.id ? 'text-white/80' : 'text-spice-900/35'}`}>
+                {tabCounts[tab.id]}
+              </span>
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-3">
-          {myBookings.length === 0 ? (
+          {visibleBookings.length === 0 ? (
             <div className="bg-white rounded-[20px] border border-sand-200/80">
               <EmptyState
                 icon="fa-regular fa-calendar-xmark"
-                title="No bookings yet"
-                body="Start a reservation to lock a date with JannaSpice."
-                action={<button type="button" onClick={startNewBooking} className="btn-primary">Book an event</button>}
+                title={myBookings.length === 0 ? 'No bookings yet' : `No ${bookingTab === 'all' ? '' : bookingTab} bookings`}
+                body={
+                  myBookings.length === 0
+                    ? 'Start a reservation to lock a date with JannaSpice.'
+                    : 'Nothing in this tab right now.'
+                }
+                action={
+                  myBookings.length === 0
+                    ? <button type="button" onClick={startNewBooking} className="btn-primary">Book an event</button>
+                    : null
+                }
               />
             </div>
-          ) : myBookings.map((r) => (
+          ) : visibleBookings.map((r) => (
             <BookingSummaryCard
               key={r.id}
               reservation={r}
