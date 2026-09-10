@@ -124,6 +124,58 @@ export function validateSignInInput({ email, password }) {
   return { ok: true, value: { email: mail, password: pass } };
 }
 
+export function validateProfileInput({ name, phone }) {
+  const errors = {};
+  const fullName = normalizeName(name);
+  const mobile = normalizePhone(phone);
+
+  if (!fullName) {
+    errors.name = 'Full name is required.';
+  } else if (fullName.length < 2) {
+    errors.name = 'Full name must be at least 2 characters.';
+  } else if (fullName.length > 80) {
+    errors.name = 'Full name must be 80 characters or less.';
+  } else if (!NAME_RE.test(fullName)) {
+    errors.name = 'Use letters only (spaces, hyphen, apostrophe allowed).';
+  }
+
+  if (!mobile) {
+    errors.phone = 'Mobile number is required.';
+  } else if (!PHONE_RE.test(mobile)) {
+    errors.phone = 'Use a valid PH mobile (09XXXXXXXXX or +639XXXXXXXXX).';
+  }
+
+  if (Object.keys(errors).length) {
+    return { ok: false, errors };
+  }
+
+  return { ok: true, value: { name: fullName, phone: mobile } };
+}
+
+export function validateResetPasswordInput({ password, confirmPassword }) {
+  const errors = {};
+  const pass = String(password ?? '');
+  const confirm = String(confirmPassword ?? '');
+
+  if (!pass) {
+    errors.password = 'Password is required.';
+  } else if (!isStrongPassword(pass)) {
+    errors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters and include upper, lower, number, and symbol.`;
+  }
+
+  if (!confirm) {
+    errors.confirmPassword = 'Please confirm your password.';
+  } else if (confirm !== pass) {
+    errors.confirmPassword = 'Passwords do not match.';
+  }
+
+  if (Object.keys(errors).length) {
+    return { ok: false, errors };
+  }
+
+  return { ok: true, value: { password: pass } };
+}
+
 export function firstValidationMessage(errors = {}) {
   const first = Object.values(errors)[0];
   return first || 'Please fix the highlighted fields.';

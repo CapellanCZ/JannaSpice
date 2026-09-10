@@ -11,7 +11,7 @@ async function callRpc(fn, args) {
 export async function listReservations() {
   const { data, error } = await supabase
     .from('reservations')
-    .select('*, reservation_messages(*)')
+    .select('*, reservation_messages(*), payment_proofs(*)')
     .order('created_at', { ascending: false });
   if (error) throw new Error(getErrorMessage(error, 'Could not load bookings.'));
   return (data || []).map(mapReservation);
@@ -67,4 +67,27 @@ export async function sendMessage(reservationId, text) {
     p_text: text
   });
   return mapReservation(data);
+}
+
+export async function requestCancellation(reservationId) {
+  const data = await callRpc('request_cancellation', { p_reservation_id: reservationId });
+  return mapReservation(data);
+}
+
+export async function confirmCancellation(reservationId) {
+  const data = await callRpc('confirm_cancellation', { p_reservation_id: reservationId });
+  return mapReservation(data);
+}
+
+export async function rejectCancellation(reservationId, note) {
+  const data = await callRpc('reject_cancellation', {
+    p_reservation_id: reservationId,
+    p_note: note || null
+  });
+  return mapReservation(data);
+}
+
+export async function expireUnpaidReservations() {
+  const { error } = await supabase.rpc('expire_unpaid_reservations');
+  if (error) throw new Error(getErrorMessage(error, 'Could not release unpaid slots.'));
 }

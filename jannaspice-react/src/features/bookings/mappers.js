@@ -12,11 +12,31 @@ function mapMessage(row) {
   };
 }
 
+function mapProof(row) {
+  return {
+    id: row.id,
+    paymentType: row.paymentType || row.payment_type,
+    amount: Number(row.amount || 0),
+    referenceNo: row.referenceNo || row.reference_no || '',
+    storagePath: row.storagePath || row.storage_path,
+    status: row.status,
+    note: row.note || '',
+    createdAt: row.createdAt || row.created_at,
+    reviewedAt: row.reviewedAt || row.reviewed_at || null
+  };
+}
+
 export function mapReservation(row) {
   const messages = Array.isArray(row.messages)
     ? row.messages.map(mapMessage)
     : Array.isArray(row.reservation_messages)
       ? row.reservation_messages.map(mapMessage)
+      : [];
+
+  const proofs = Array.isArray(row.paymentProofs)
+    ? row.paymentProofs.map(mapProof)
+    : Array.isArray(row.payment_proofs)
+      ? row.payment_proofs.map(mapProof)
       : [];
 
   const pkg = row.package || row.package_snapshot || {};
@@ -46,6 +66,10 @@ export function mapReservation(row) {
       bal: !!row.payment_bal
     },
     changeRequest: row.changeRequest || row.change_request || null,
+    cancelRequest: row.cancelRequest || row.cancel_request || null,
+    paymentDueAt: row.paymentDueAt || row.payment_due_at || null,
+    expiredReason: row.expiredReason || row.expired_reason || null,
+    paymentProofs: proofs,
     messages
   };
 }

@@ -2,6 +2,8 @@ import { supabase } from '../../lib/supabase/client.js';
 import { getErrorMessage } from '../../lib/supabase/errors.js';
 import {
   firstValidationMessage,
+  validateProfileInput,
+  validateResetPasswordInput,
   validateSignInInput,
   validateSignUpInput
 } from './validation.js';
@@ -84,16 +86,16 @@ export async function getCurrentUser() {
 }
 
 export function onAuthStateChange(callback) {
-  const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
     if (!session?.user) {
-      callback(null);
+      callback(null, event);
       return;
     }
     try {
       const profile = await fetchProfile(session.user.id);
-      callback(mapProfile(session.user, profile));
+      callback(mapProfile(session.user, profile), event);
     } catch {
-      callback(mapProfile(session.user, null));
+      callback(mapProfile(session.user, null), event);
     }
   });
   return () => data.subscription.unsubscribe();
@@ -135,4 +137,38 @@ export async function signOut() {
   if (error && !isMissingSessionError(error)) {
     throw new Error(getErrorMessage(error, 'Could not sign out.'));
   }
+}
+
+export async function requestPasswordReset(email) {
+  const mail = String(email || '').trim().toLowerCase();
+  if (!mail) throw new ValidationError({ email: 'Enter a valid email address.' });
+
+  const { error } = await supabase.auth.resetPasswordForEmail(mail, {
+    redirectTo: `${window.location.origin}/`
+  });
+  if (error) throw new Error(mapAuthError(error, 'Could not send reset email.'));
+}
+
+export async function updatePassword({ password, confirmPassword }) {
+  const result = validateResetPasswordInput({ password, confirmPassword });
+  if (!result.ok) throw new ValidationError(result.errors);
+
+  const { error } = await supabase.auth.updateUser({ password: result.value.password });
+  if (error) throw new Error(mapAuthError(error, 'Could not update password.'));
+}
+
+export async function updateProfile({ name, phone }) {
+  const result = validateProfileInput({ name, phone });
+  if (!result.ok) throw new ValidationError(result.errors);
+
+  const { error } = await supabase.rpc('update_my_profile', {
+    p_full_name: result.value.name,
+    p_phone: result.value.phone
+  });
+  if (error) throw new Error(getErrorMessage(error, 'Could not update profile.'));
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw new Error(getErrorMessage(userError, 'Could not refresh profile.'));
+  const profile = await fetchProfile(userData.user.id);
+  return mapProfile(userData.user, profile);
 }

@@ -11,6 +11,9 @@ import ClientDetailModal from './components/modals/ClientDetailModal.jsx';
 import SuccessModal from './components/modals/SuccessModal.jsx';
 import BlackoutModal from './components/modals/BlackoutModal.jsx';
 import CustomAlertModal from './components/modals/CustomAlertModal.jsx';
+import ProfileModal from './components/modals/ProfileModal.jsx';
+import CatalogModal from './components/modals/CatalogModal.jsx';
+import { BrandMark } from './components/ui/index.jsx';
 
 export default function App() {
   const { view, switchAppView, currentUser, authReady } = useApp();
@@ -18,8 +21,9 @@ export default function App() {
 
   if (!authReady) {
     return (
-      <div className="min-h-screen bg-sand-50 flex items-center justify-center text-spice-900/60 text-sm font-medium">
-        Loading JannaSpice…
+      <div className="min-h-[100dvh] bg-sand-50 flex flex-col items-center justify-center gap-3">
+        <BrandMark />
+        <p className="text-sm font-medium text-spice-900/50">Loading JannaSpice</p>
       </div>
     );
   }
@@ -28,11 +32,12 @@ export default function App() {
     <>
       {view !== 'manager' && isManager && (
         <button
+          type="button"
           onClick={() => switchAppView('manager')}
-          className="fixed bottom-6 right-6 z-[60] bg-spice-900 text-white px-5 py-3 rounded-full text-sm font-medium shadow-float hover:bg-spice-500 transition-colors duration-300 flex items-center gap-2 active:scale-95"
+          className="ui-fab bg-spice-900 text-white px-5 py-3 rounded-full text-sm font-semibold shadow-float hover:bg-spice-500 transition-colors duration-300 flex items-center gap-2 active:scale-95"
           aria-label="Switch to Manager View"
         >
-          <i className="fa-solid fa-clipboard-list"></i> Manager View
+          <i className="fa-solid fa-clipboard-list"></i> Manager view
         </button>
       )}
 
@@ -47,6 +52,8 @@ export default function App() {
       <ClientDetailModal />
       <SuccessModal />
       <BlackoutModal />
+      <ProfileModal />
+      <CatalogModal />
       <CustomAlertModal />
       <div id="print-receipt-container"></div>
     </>

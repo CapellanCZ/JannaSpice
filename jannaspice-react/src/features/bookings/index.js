@@ -7,5 +7,9 @@ export {
   logPayment,
   approveChangeRequest,
   rejectChangeRequest,
-  sendMessage
+  sendMessage,
+  requestCancellation,
+  confirmCancellation,
+  rejectCancellation,
+  expireUnpaidReservations
 } from './api.js';

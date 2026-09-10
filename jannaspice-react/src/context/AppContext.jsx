@@ -5,6 +5,9 @@ import * as authApi from '../features/auth/index.js';
 import * as bookingsApi from '../features/bookings/index.js';
 import * as blackoutsApi from '../features/blackouts/index.js';
 import * as notificationsApi from '../features/notifications/index.js';
+import * as catalogApi from '../features/catalog/index.js';
+import * as paymentsApi from '../features/payments/index.js';
+import { dispatchEmails } from '../features/emails/index.js';
 import { checkDateAvailability } from '../features/availability/index.js';
 
 const AppContext = createContext(null);
@@ -26,7 +29,13 @@ export function AppProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isSignupMode, setIsSignupMode] = useState(false);
+  const [authView, setAuthView] = useState('login');
   const pendingAuthCallback = useRef(null);
+
+  const fallback = catalogApi.fallbackCatalog();
+  const [packages, setPackages] = useState(fallback.packages);
+  const [menuOptions, setMenuOptions] = useState(fallback.menuOptions);
+  const [menuItems, setMenuItems] = useState(fallback.menuItems);
 
   const [reservationsQueue, setReservationsQueue] = useState([]);
   const [blackoutDates, setBlackoutDates] = useState([]);
@@ -38,6 +47,8 @@ export function AppProvider({ children }) {
   const [clientDetailModal, setClientDetailModal] = useState({ open: false, resId: null });
   const [successModal, setSuccessModal] = useState({ open: false, message: '' });
   const [blackoutModal, setBlackoutModal] = useState({ open: false });
+  const [profileModal, setProfileModal] = useState({ open: false });
+  const [catalogModal, setCatalogModal] = useState({ open: false });
   const [alertModal, setAlertModal] = useState({ open: false, message: '', title: 'Notice', type: 'info' });
   const alertCallback = useRef(null);
 
@@ -76,7 +87,30 @@ export function AppProvider({ children }) {
     return rows;
   }, []);
 
+  const refreshCatalog = useCallback(async (includeInactive = false) => {
+    try {
+      const catalog = await catalogApi.listCatalog({ includeInactive });
+      if (catalog.packages.length) setPackages(catalog.packages);
+      if (Object.values(catalog.menuOptions).some((list) => list.length)) {
+        setMenuOptions(catalog.menuOptions);
+      }
+      setMenuItems(catalog.menuItems);
+      return catalog;
+    } catch {
+      const catalog = catalogApi.fallbackCatalog();
+      setPackages(catalog.packages);
+      setMenuOptions(catalog.menuOptions);
+      setMenuItems(catalog.menuItems);
+      return catalog;
+    }
+  }, []);
+
   const loadWorkspace = useCallback(async (user) => {
+    await refreshCatalog(user?.role === 'manager').catch(() => {});
+    if (user) {
+      await bookingsApi.expireUnpaidReservations().catch(() => {});
+      dispatchEmails();
+    }
     if (!user) {
       const blackouts = await blackoutsApi.listBlackouts();
       setBlackoutDates(blackouts);
@@ -92,7 +126,7 @@ export function AppProvider({ children }) {
     setReservationsQueue(reservations);
     setBlackoutDates(blackouts);
     setClientNotifications(notifications);
-  }, []);
+  }, [refreshCatalog]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,8 +156,12 @@ export function AppProvider({ children }) {
   }, [customAlert, loadWorkspace]);
 
   useEffect(() => {
-    return authApi.onAuthStateChange(async (user) => {
+    return authApi.onAuthStateChange(async (user, event) => {
       setCurrentUser(user);
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthView('recovery');
+        setAuthModal({ open: true });
+      }
       try {
         await loadWorkspace(user);
       } catch (err) {
@@ -150,6 +188,9 @@ export function AppProvider({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
         if (currentUser) refreshNotifications(currentUser.email).catch(() => {});
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_proofs' }, () => {
+        refreshReservations().catch(() => {});
+      })
       .subscribe();
 
     return () => {
@@ -159,9 +200,10 @@ export function AppProvider({ children }) {
 
   const requireAuth = useCallback((callback) => {
     if (!currentUser) {
-      pendingAuthCallback.current = callback;
-      setIsSignupMode(false);
-      setAuthModal({ open: true });
+    pendingAuthCallback.current = callback;
+    setIsSignupMode(false);
+    setAuthView('login');
+    setAuthModal({ open: true });
     } else {
       callback();
     }
@@ -169,11 +211,28 @@ export function AppProvider({ children }) {
 
   const openAuthModal = useCallback((mode) => {
     setIsSignupMode(mode === 'signup');
+    setAuthView(mode === 'signup' ? 'signup' : mode === 'forgot' ? 'forgot' : mode === 'recovery' ? 'recovery' : 'login');
     setAuthModal({ open: true });
   }, []);
 
-  const closeAuthModal = useCallback(() => setAuthModal({ open: false }), []);
-  const toggleAuthMode = useCallback(() => setIsSignupMode(m => !m), []);
+  const closeAuthModal = useCallback(() => {
+    setAuthModal({ open: false });
+    if (authView !== 'recovery') setAuthView(isSignupMode ? 'signup' : 'login');
+  }, [authView, isSignupMode]);
+
+  const toggleAuthMode = useCallback(() => {
+    setIsSignupMode((m) => {
+      const next = !m;
+      setAuthView(next ? 'signup' : 'login');
+      return next;
+    });
+  }, []);
+
+  const openForgotPassword = useCallback(() => setAuthView('forgot'), []);
+  const showLogin = useCallback(() => {
+    setIsSignupMode(false);
+    setAuthView('login');
+  }, []);
 
   const handleAuth = useCallback(async ({ email, password, name, phone, confirmPassword }) => {
     try {
@@ -196,6 +255,50 @@ export function AppProvider({ children }) {
       return { ok: false, errors: null };
     }
   }, [isSignupMode, customAlert, switchAppView, loadWorkspace]);
+
+  const handleForgotPassword = useCallback(async (email) => {
+    try {
+      await authApi.requestPasswordReset(email);
+      customAlert('If that email is registered, a reset link is on the way.', 'Check your email', 'success');
+      setAuthView('login');
+      return { ok: true };
+    } catch (err) {
+      if (err?.name === 'ValidationError' && err.errors) return { ok: false, errors: err.errors };
+      customAlert(err.message, 'Error', 'error');
+      return { ok: false, errors: null };
+    }
+  }, [customAlert]);
+
+  const handleResetPassword = useCallback(async ({ password, confirmPassword }) => {
+    try {
+      await authApi.updatePassword({ password, confirmPassword });
+      const user = await authApi.getCurrentUser();
+      setCurrentUser(user);
+      await loadWorkspace(user);
+      setAuthModal({ open: false });
+      setAuthView('login');
+      customAlert('Password updated. You are signed in.', 'Success', 'success');
+      return { ok: true };
+    } catch (err) {
+      if (err?.name === 'ValidationError' && err.errors) return { ok: false, errors: err.errors };
+      customAlert(err.message, 'Error', 'error');
+      return { ok: false, errors: null };
+    }
+  }, [customAlert, loadWorkspace]);
+
+  const handleUpdateProfile = useCallback(async ({ name, phone }) => {
+    try {
+      const user = await authApi.updateProfile({ name, phone });
+      setCurrentUser(user);
+      setProfileModal({ open: false });
+      customAlert('Profile updated.', 'Success', 'success');
+      return { ok: true };
+    } catch (err) {
+      if (err?.name === 'ValidationError' && err.errors) return { ok: false, errors: err.errors };
+      customAlert(err.message, 'Error', 'error');
+      return { ok: false, errors: null };
+    }
+  }, [customAlert]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -224,6 +327,7 @@ export function AppProvider({ children }) {
   const runMutation = useCallback(async (fn, successAlert) => {
     try {
       const result = await fn();
+      dispatchEmails();
       await Promise.all([
         refreshReservations(),
         currentUser ? refreshNotifications(currentUser.email) : Promise.resolve()
@@ -270,6 +374,57 @@ export function AppProvider({ children }) {
     )
   ), [runMutation]);
 
+  const requestCancellation = useCallback((id) => (
+    runMutation(() => bookingsApi.requestCancellation(id))
+  ), [runMutation]);
+
+  const confirmCancellation = useCallback((id) => (
+    runMutation(
+      () => bookingsApi.confirmCancellation(id),
+      { message: 'Cancellation confirmed. The date slot is released.', title: 'Cancelled', type: 'success' }
+    )
+  ), [runMutation]);
+
+  const rejectCancellation = useCallback((id, note) => (
+    runMutation(
+      () => bookingsApi.rejectCancellation(id, note),
+      { message: 'Cancellation request declined.', title: 'Notice', type: 'info' }
+    )
+  ), [runMutation]);
+
+  const submitPaymentProof = useCallback((payload) => (
+    runMutation(
+      () => paymentsApi.uploadPaymentProof(payload),
+      { message: 'Payment proof submitted. Waiting for owner verification.', title: 'Proof uploaded', type: 'success' }
+    )
+  ), [runMutation]);
+
+  const reviewPaymentProof = useCallback((proofId, decision, note) => (
+    runMutation(() => paymentsApi.reviewPaymentProof(proofId, decision, note))
+  ), [runMutation]);
+
+  const savePackage = useCallback(async (payload) => {
+    try {
+      await catalogApi.upsertPackage(payload);
+      await refreshCatalog(true);
+      customAlert('Package saved.', 'Success', 'success');
+    } catch (err) {
+      customAlert(err.message, 'Error', 'error');
+      throw err;
+    }
+  }, [refreshCatalog, customAlert]);
+
+  const saveMenuItem = useCallback(async (payload) => {
+    try {
+      await catalogApi.upsertMenuItem(payload);
+      await refreshCatalog(true);
+      customAlert('Menu item saved.', 'Success', 'success');
+    } catch (err) {
+      customAlert(err.message, 'Error', 'error');
+      throw err;
+    }
+  }, [refreshCatalog, customAlert]);
+
   const sendMessage = useCallback(async (resId, _role, text) => {
     try {
       await bookingsApi.sendMessage(resId, text);
@@ -307,20 +462,32 @@ export function AppProvider({ children }) {
   const closeBlackoutModal = useCallback(() => setBlackoutModal({ open: false }), []);
   const openSuccessModal = useCallback((message) => setSuccessModal({ open: true, message }), []);
   const closeSuccessModal = useCallback(() => setSuccessModal({ open: false, message: '' }), []);
+  const openProfileModal = useCallback(() => setProfileModal({ open: true }), []);
+  const closeProfileModal = useCallback(() => setProfileModal({ open: false }), []);
+  const openCatalogModal = useCallback(() => setCatalogModal({ open: true }), []);
+  const closeCatalogModal = useCallback(() => setCatalogModal({ open: false }), []);
 
   const value = {
     CONFIG, getMinDateString, authReady, checkDateAvailability,
     view, switchAppView,
-    currentUser, isSignupMode,
-    requireAuth, openAuthModal, closeAuthModal, toggleAuthMode, handleAuth, handleLogout,
+    currentUser, isSignupMode, authView,
+    packages, menuOptions, menuItems,
+    requireAuth, openAuthModal, closeAuthModal, toggleAuthMode, openForgotPassword, showLogin,
+    handleAuth, handleForgotPassword, handleResetPassword, handleUpdateProfile, handleLogout,
     reservationsQueue, createReservation, submitChangeRequest, updateReservationStatus,
     cancelReservation, logPayment, approveChangeRequest, rejectChangeRequest, sendMessage,
+    requestCancellation, confirmCancellation, rejectCancellation,
+    submitPaymentProof, reviewPaymentProof, getProofSignedUrl: paymentsApi.getProofSignedUrl,
+    nextPaymentType: paymentsApi.nextPaymentType, pendingProofFor: paymentsApi.pendingProofFor,
+    savePackage, saveMenuItem, refreshCatalog,
     blackoutDates, addBlackout, deleteBlackout,
     clientNotifications, markClientNotificationsRead, clearClientNotifications,
     authModal, chatModal, openChat, closeChat,
     detailPanel, openDetail, closeDetail,
     clientDetailModal, openClientDetail, closeClientDetail,
     blackoutModal, openBlackoutModal, closeBlackoutModal,
+    profileModal, openProfileModal, closeProfileModal,
+    catalogModal, openCatalogModal, closeCatalogModal,
     successModal, openSuccessModal, closeSuccessModal,
     alertModal, customAlert, closeCustomAlert
   };

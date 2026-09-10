@@ -3,7 +3,13 @@ import { useApp } from '../../context/AppContext.jsx';
 import { CONFIG } from '../../data/data.js';
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const DOT = { Pending: 'bg-yellow-100 text-yellow-800', Approved: 'bg-blue-100 text-blue-800', Reserved: 'bg-purple-100 text-purple-800', FullyPaid: 'bg-green-100 text-green-800' };
+const DOT = {
+  Pending: 'bg-amber-50 text-amber-800',
+  Approved: 'bg-sky-50 text-sky-800',
+  Reserved: 'bg-violet-50 text-violet-800',
+  DownpaymentVerified: 'bg-orange-50 text-orange-800',
+  FullyPaid: 'bg-emerald-50 text-emerald-800'
+};
 
 export default function Calendar({ searchQuery }) {
   const { reservationsQueue, blackoutDates, openDetail } = useApp();
@@ -35,7 +41,7 @@ export default function Calendar({ searchQuery }) {
         </div>
         <div className="space-y-1">
           {evs.map(e => (
-            <div key={e.id} onClick={() => openDetail(e.id)} className={`cursor-pointer text-[10px] p-1.5 rounded-lg font-medium truncate hover:opacity-80 ${DOT[e.status] || 'bg-yellow-100 text-yellow-800'}`}>{(e.name || 'Guest').split(' ')[0]}</div>
+            <div key={e.id} onClick={() => openDetail(e.id)} className={`cursor-pointer text-[10px] p-1.5 rounded-lg font-medium truncate hover:opacity-80 ${DOT[e.status] || 'bg-amber-50 text-amber-800'}`}>{(e.name || 'Guest').split(' ')[0]}</div>
           ))}
         </div>
       </div>
@@ -43,19 +49,20 @@ export default function Calendar({ searchQuery }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-sand-200 shadow-sm p-4 lg:p-6">
+    <div className="surface-card p-4 lg:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => changeMonth(-1)} className="w-9 h-9 rounded-full border border-sand-200 hover:bg-sand-100 flex items-center justify-center"><i className="fa-solid fa-chevron-left"></i></button>
+          <button onClick={() => changeMonth(-1)} className="icon-btn" aria-label="Previous month"><i className="fa-solid fa-chevron-left"></i></button>
           <h3 className="font-serif font-bold text-xl text-spice-900 w-48 text-center">{MONTH_NAMES[m]} {y}</h3>
-          <button onClick={() => changeMonth(1)} className="w-9 h-9 rounded-full border border-sand-200 hover:bg-sand-100 flex items-center justify-center"><i className="fa-solid fa-chevron-right"></i></button>
-          <button onClick={() => setViewDate(new Date())} className="text-xs font-bold text-spice-500 hover:underline ml-2">Today</button>
+          <button onClick={() => changeMonth(1)} className="icon-btn" aria-label="Next month"><i className="fa-solid fa-chevron-right"></i></button>
+          <button onClick={() => setViewDate(new Date())} className="btn-ghost btn-sm">Today</button>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-spice-900/60">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400"></span>Pending</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400"></span>Awaiting</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-400"></span>Reserved</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500"></span>Fully Paid</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"></span>Pending</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400"></span>Approved</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400"></span>Reserved</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>50% Paid</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Fully Paid</span>
         </div>
       </div>
       <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-spice-900/50 uppercase mb-2">

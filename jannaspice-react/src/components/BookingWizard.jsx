@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { packages, rentalInclusions, menuOptions, menuCategoryMeta } from '../data/data.js';
+import { rentalInclusions, menuCategoryMeta } from '../data/data.js';
+import { AppHeader, Banner } from './ui/index.jsx';
 
 const STEP_LABELS = ['Details', 'Package', 'Menu Setup', 'Submit'];
 
@@ -12,11 +13,13 @@ const emptyForm = {
 
 export default function BookingWizard() {
   const { switchAppView, requireAuth, currentUser, reservationsQueue, createReservation,
-          submitChangeRequest, openSuccessModal, customAlert, CONFIG, getMinDateString, checkDateAvailability } = useApp();
+          submitChangeRequest, openSuccessModal, customAlert, CONFIG, getMinDateString, checkDateAvailability,
+          packages, menuOptions } = useApp();
 
+  const defaultPackageId = packages.find((p) => p.type === 'promo')?.id || packages[0]?.id;
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(emptyForm);
-  const [selectedPackageId, setSelectedPackageId] = useState(packages[1].id);
+  const [selectedPackageId, setSelectedPackageId] = useState(defaultPackageId);
   const [selectedMenu, setSelectedMenu] = useState({ chicken: '', beefPork: '', fishSeafood: '', veg: '', pasta: '' });
   const [editingReservationId, setEditingReservationId] = useState(null);
   const [errors, setErrors] = useState({});
@@ -31,6 +34,12 @@ export default function BookingWizard() {
       setForm(f => ({ ...f, clientName: f.clientName || currentUser.name, clientEmail: f.clientEmail || currentUser.email, clientPhone: f.clientPhone || currentUser.phone || '' }));
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!packages.some((p) => p.id === selectedPackageId) && packages[0]) {
+      setSelectedPackageId(packages.find((p) => p.type === 'promo')?.id || packages[0].id);
+    }
+  }, [packages, selectedPackageId]);
 
   useEffect(() => {
     function onStart(e) {
@@ -67,7 +76,7 @@ export default function BookingWizard() {
 
   function resetWizard() {
     setForm(emptyForm);
-    setSelectedPackageId(packages[1].id);
+    setSelectedPackageId(packages.find((p) => p.type === 'promo')?.id || packages[0]?.id);
     setSelectedMenu({ chicken: '', beefPork: '', fishSeafood: '', veg: '', pasta: '' });
     setEditingReservationId(null);
     setErrors({});
@@ -159,15 +168,10 @@ export default function BookingWizard() {
   }
 
   return (
-    <div className="bg-sand-50 flex flex-col min-h-screen">
-      <header className="bg-white border-b border-sand-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <div className="bg-spice-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md"><i className="fa-solid fa-calendar-check"></i></div>
-          <div><h1 className="font-serif font-bold text-lg text-spice-900 leading-none">Booking Portal</h1><p className="text-xs text-spice-900/50">Secure your date</p></div>
-        </div>
-        <button onClick={() => switchAppView('home')} className="btn-secondary py-2 px-4 text-sm hidden sm:flex"><i className="fa-solid fa-arrow-left"></i> Cancel / Return</button>
-        <button onClick={() => switchAppView('home')} className="btn-secondary w-10 h-10 p-0 rounded-full flex sm:hidden items-center justify-center text-sm"><i className="fa-solid fa-xmark"></i></button>
-      </header>
+    <div className="bg-sand-50 flex flex-col min-h-[100dvh]">
+      <AppHeader icon="fa-calendar-check" title="Booking" subtitle={editingReservationId ? 'Request changes' : 'Secure your date'} onBrandClick={() => switchAppView('home')}>
+        <button type="button" onClick={() => switchAppView('home')} className="btn-secondary btn-sm">Cancel</button>
+      </AppHeader>
 
       <section className="py-12 flex-grow">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
@@ -191,7 +195,7 @@ export default function BookingWizard() {
             })}
           </div>
 
-          <div className="bg-white rounded-3xl p-8 lg:p-12 shadow-soft border border-sand-200">
+          <div className="surface-card p-6 lg:p-10">
             <form onSubmit={handleSubmit} noValidate>
               {step === 1 && (
                 <div>
@@ -199,12 +203,12 @@ export default function BookingWizard() {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-spice-900 mb-2">Event Title</label>
+                        <label className="field-label">Event Title</label>
                         <input type="text" value={form.eventTitle} onChange={e => set('eventTitle', e.target.value)} placeholder="e.g., Mia's 18th Birthday" className={`input-modern ${errors.eventTitle ? 'input-error' : ''}`} required />
-                        {errors.eventTitle && <span className="text-xs text-red-500 mt-1 block">{errors.eventTitle}</span>}
+                        {errors.eventTitle && <p className="field-error">{errors.eventTitle}</p>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-spice-900 mb-2">Occasion</label>
+                        <label className="field-label">Occasion</label>
                         <select value={form.eventType} onChange={e => set('eventType', e.target.value)} className={`input-modern ${errors.eventType ? 'input-error' : ''}`} required>
                           <option value="">-- Select Occasion --</option>
                           <option value="Wedding">Wedding Reception</option>
@@ -215,35 +219,35 @@ export default function BookingWizard() {
                         {form.eventType === 'Other' && (
                           <input type="text" value={form.eventTypeCustom} onChange={e => set('eventTypeCustom', e.target.value)} className="input-modern mt-2" placeholder="Please specify occasion" />
                         )}
-                        {errors.eventType && <span className="text-xs text-red-500 mt-1 block">{errors.eventType}</span>}
+                        {errors.eventType && <p className="field-error">{errors.eventType}</p>}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-spice-900 mb-2">Date</label>
+                        <label className="field-label">Date</label>
                         <input type="date" value={form.date} min={minDate} onChange={e => set('date', e.target.value)} className={`input-modern ${errors.date ? 'input-error' : ''}`} required />
-                        {errors.date && <span className="text-xs text-red-500 mt-1 block">{errors.date}</span>}
+                        {errors.date && <p className="field-error">{errors.date}</p>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-spice-900 mb-2">Start Time</label>
+                        <label className="field-label">Start Time</label>
                         <input type="time" value={form.time} onChange={e => set('time', e.target.value)} className="input-modern" required />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-spice-900 mb-2">Venue Address (or specific area)</label>
+                      <label className="field-label">Venue Address (or specific area)</label>
                       <input type="text" value={form.venue} onChange={e => set('venue', e.target.value)} placeholder="Where will the event be held?" className={`input-modern ${errors.venue ? 'input-error' : ''}`} required />
-                      {errors.venue && <span className="text-xs text-red-500 mt-1 block">{errors.venue}</span>}
+                      {errors.venue && <p className="field-error">{errors.venue}</p>}
                     </div>
 
                     <div className="pt-4 border-t border-sand-200">
                       <h4 className="text-md font-serif font-bold text-spice-900 mb-4">Event Styling & Theme Preferences</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                         <div>
-                          <label className="block text-sm font-medium text-spice-900 mb-2">Event Theme / Color Motif</label>
+                          <label className="field-label">Event Theme / Color Motif</label>
                           <input type="text" value={form.theme} onChange={e => set('theme', e.target.value)} placeholder="e.g., Rustic Boho, Dusty Rose & Gold" className="input-modern" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-spice-900 mb-2">Table Centerpiece Choice</label>
+                          <label className="field-label">Table Centerpiece Choice</label>
                           <select value={form.centerpiece} onChange={e => set('centerpiece', e.target.value)} className="input-modern">
                             <option value="Artificial Flowers">Artificial Flowers</option>
                             <option value="Balloon Centerpieces">Balloon Centerpieces</option>
@@ -257,7 +261,7 @@ export default function BookingWizard() {
                         </div>
                         {form.styroAvail && (
                           <div className="pl-7">
-                            <label className="block text-sm font-medium text-spice-900 mb-1">Name / Text to be used on Styro Standee</label>
+                            <label className="field-label">Name / Text to be used on Styro Standee</label>
                             <input type="text" value={form.styroName} onChange={e => set('styroName', e.target.value)} placeholder="e.g., Happy 18th Mia" className="input-modern" />
                           </div>
                         )}
@@ -298,8 +302,8 @@ export default function BookingWizard() {
                     })}
                   </div>
                   <div className="mt-10 flex justify-between">
-                    <button type="button" onClick={() => goToStep(1)} className="btn-secondary text-spice-900/60 border-transparent hover:border-sand-200 hover:bg-sand-100">Back</button>
-                    <button type="button" onClick={() => goToStep(3)} className="btn-primary">Next: Menu Setup <i className="fa-solid fa-arrow-right text-sm"></i></button>
+                    <button type="button" onClick={() => goToStep(1)} className="btn-secondary">Back</button>
+                    <button type="button" onClick={() => goToStep(3)} className="btn-primary">Next: Menu</button>
                   </div>
                 </div>
               )}
@@ -324,17 +328,16 @@ export default function BookingWizard() {
                     </div>
                   ) : (
                     <div className="space-y-8">
-                      <div className="bg-green-50 text-green-800 p-4 rounded-xl border border-green-200 flex items-start gap-3 text-sm">
-                        <i className="fa-solid fa-circle-check mt-0.5"></i>
-                        <div><span className="font-bold">Automatically Included:</span> Plain Rice, Dessert, Juice, and Mineral Water. Browse the photos below and select your 5 main courses.</div>
-                      </div>
+                      <Banner tone="success" icon="fa-circle-check">
+                        <span className="font-semibold">Automatically included:</span> Plain rice, dessert, juice, and mineral water. Select your 5 main courses below.
+                      </Banner>
 
                       <div className="space-y-6">
                         {menuCategoryMeta.map(cat => (
                           <div key={cat.key} className="space-y-3">
                             <h4 className="text-md font-serif font-bold text-spice-900">{cat.label}</h4>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
-                              {menuOptions[cat.key].map(item => {
+                              { (menuOptions[cat.key] || []).map(item => {
                                 const selected = selectedMenu[cat.key] === item.name;
                                 return (
                                   <div key={item.name} onClick={() => selectDish(cat.key, item.name)}
@@ -357,8 +360,8 @@ export default function BookingWizard() {
                   )}
 
                   <div className="mt-10 flex justify-between">
-                    <button type="button" onClick={() => goToStep(2)} className="btn-secondary text-spice-900/60 border-transparent hover:border-sand-200 hover:bg-sand-100">Back</button>
-                    <button type="button" onClick={() => goToStep(4)} className="btn-primary">Review Details <i className="fa-solid fa-arrow-right text-sm"></i></button>
+                    <button type="button" onClick={() => goToStep(2)} className="btn-secondary">Back</button>
+                    <button type="button" onClick={() => goToStep(4)} className="btn-primary">Review</button>
                   </div>
                 </div>
               )}
@@ -370,15 +373,15 @@ export default function BookingWizard() {
                       <h3 className="text-2xl font-serif font-bold text-spice-900 mb-6">Client Contact</h3>
                       <div className="space-y-6">
                         <div>
-                          <label className="block text-sm font-medium text-spice-900 mb-2">Full Name</label>
+                          <label className="field-label">Full Name</label>
                           <input type="text" value={form.clientName} onChange={e => set('clientName', e.target.value)} placeholder="Juan Dela Cruz" className="input-modern" required />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-spice-900 mb-2">Mobile Number</label>
+                          <label className="field-label">Mobile Number</label>
                           <input type="tel" value={form.clientPhone} onChange={e => set('clientPhone', e.target.value)} pattern="^(09|\+639)\d{9}$" maxLength={13} placeholder="09XX XXX XXXX" className="input-modern" required title="Valid 11-digit PH mobile required" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-spice-900 mb-2">Email Address</label>
+                          <label className="field-label">Email Address</label>
                           <input type="email" value={form.clientEmail} onChange={e => set('clientEmail', e.target.value)} placeholder="juan@example.com" className="input-modern" required />
                         </div>
                       </div>
@@ -398,12 +401,12 @@ export default function BookingWizard() {
                           <div><p className="text-[10px] uppercase font-bold text-spice-900/50">Down (30%)</p><p className="font-bold text-spice-900 text-sm">₱{quote.down.toLocaleString()}</p></div>
                           <div><p className="text-[10px] uppercase font-bold text-spice-900/50">Balance (50%)</p><p className="font-bold text-spice-900 text-sm">₱{quote.bal.toLocaleString()}</p></div>
                         </div>
-                        <p className="text-xs text-spice-900/50 mt-3 text-center">*Contract signing & the 20% reservation fee are settled in person at our office to lock your date.</p>
+                        <p className="text-xs text-spice-900/50 mt-3 text-center">*After owner approval, upload your 20% reservation fee proof in My Bookings within 48 hours to lock the date.</p>
                       </div>
                     </div>
                   </div>
                   <div className="mt-10 flex justify-between">
-                    <button type="button" onClick={() => goToStep(3)} className="btn-secondary text-spice-900/60 border-transparent hover:border-sand-200 hover:bg-sand-100">Back</button>
+                    <button type="button" onClick={() => goToStep(3)} className="btn-secondary">Back</button>
                     <button type="submit" disabled={submitting} className="btn-primary px-8 relative">
                       <span className={`flex items-center gap-1 ${submitting ? 'opacity-0' : ''}`}>Confirm Booking <i className="fa-solid fa-paper-plane text-sm ml-1"></i></span>
                       {submitting && (
