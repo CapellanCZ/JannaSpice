@@ -176,23 +176,41 @@ export default function BookingWizard() {
       <section className="py-12 flex-grow">
         <div className="max-w-4xl mx-auto px-6 lg:px-8">
           {/* Progress */}
-          <div className="flex justify-between items-center relative mb-12 max-w-2xl mx-auto">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-sand-200 -z-10 rounded-full"></div>
-            {STEP_LABELS.map((label, idx) => {
-              const i = idx + 1;
-              let iconClass = 'w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ';
-              let labelClass = 'text-xs ';
-              let content = i;
-              if (i < step) { iconClass += 'bg-spice-100 text-spice-600 shadow-sm'; content = <i className="fa-solid fa-check text-sm"></i>; labelClass += 'font-bold text-spice-900'; }
-              else if (i === step) { iconClass += 'bg-spice-500 text-white shadow-md'; labelClass += 'font-bold text-spice-900'; }
-              else { iconClass += 'bg-sand-200 text-spice-900/40'; labelClass += 'font-medium text-spice-900/40'; }
-              return (
-                <div key={label} className="flex flex-col items-center gap-2 bg-sand-50 px-2">
-                  <div className={iconClass}>{content}</div>
-                  <span className={labelClass}>{label}</span>
-                </div>
-              );
-            })}
+          <div className="mb-12 max-w-2xl mx-auto">
+            <div className="flex items-start">
+              {STEP_LABELS.map((label, idx) => {
+                const i = idx + 1;
+                const done = i < step;
+                const active = i === step;
+                let iconClass = 'relative z-10 w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ';
+                let labelClass = 'text-xs mt-2 text-center ';
+                let content = i;
+                if (done) {
+                  iconClass += 'bg-spice-500 text-white shadow-sm';
+                  content = <i className="fa-solid fa-check text-sm"></i>;
+                  labelClass += 'font-bold text-spice-900';
+                } else if (active) {
+                  iconClass += 'bg-spice-500 text-white shadow-md';
+                  labelClass += 'font-bold text-spice-900';
+                } else {
+                  iconClass += 'bg-sand-200 text-spice-900/40';
+                  labelClass += 'font-medium text-spice-900/40';
+                }
+                const lineDone = i <= step;
+                return (
+                  <div key={label} className="flex-1 flex flex-col items-center relative min-w-0">
+                    {idx > 0 && (
+                      <div
+                        className={`absolute top-5 right-1/2 left-[-50%] h-[3px] rounded-full ${lineDone ? 'bg-spice-500' : 'bg-sand-200'}`}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <div className={iconClass}>{content}</div>
+                    <span className={labelClass}>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="surface-card p-6 lg:p-10">

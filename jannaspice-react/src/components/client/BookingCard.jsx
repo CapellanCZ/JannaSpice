@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { Banner, Field, StatusBadge } from '../ui/index.jsx';
 
@@ -11,8 +11,6 @@ const MENU_COURSES = [
   { key: 'veg', label: 'Vegetable', icon: 'fa-leaf' },
   { key: 'pasta', label: 'Pasta', icon: 'fa-utensils' }
 ];
-
-const SETUP_PHOTO = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=900&q=80';
 
 function formatDueAt(iso) {
   if (!iso) return '';
@@ -84,6 +82,7 @@ export default function BookingCard({ reservation: res, onMessages, onRequestCha
   const [file, setFile] = useState(null);
   const [referenceNo, setReferenceNo] = useState('');
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const p = res.package.price;
   const fee = p * CONFIG.reservationFeePct;
@@ -185,24 +184,6 @@ export default function BookingCard({ reservation: res, onMessages, onRequestCha
           <Banner tone="warn" icon="fa-ban">Cancellation requested. {res.cancelRequest.policy?.label || 'Waiting for owner confirmation'}.</Banner>
         )}
 
-        {courses.length > 0 ? (
-          <div className="grid grid-cols-5 gap-1.5 rounded-2xl overflow-hidden h-24 sm:h-32">
-            {courses.map((course) => (
-              <div key={course.key} className="relative h-full overflow-hidden bg-sand-100">
-                {course.img ? (
-                  <img src={course.img} alt={course.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-spice-400"><i className={`fa-solid ${course.icon}`}></i></div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl overflow-hidden h-24 sm:h-32 bg-sand-100">
-            <img src={SETUP_PHOTO} alt="Catering setup" className="w-full h-full object-cover" />
-          </div>
-        )}
-
         <section>
           <h5 className="font-serif font-bold text-base text-spice-900 mb-3">Event details</h5>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -288,19 +269,25 @@ export default function BookingCard({ reservation: res, onMessages, onRequestCha
           {canUpload && (
             <form onSubmit={uploadProof} className="mt-4 space-y-3">
               <p className="text-sm font-semibold text-spice-900">Upload {PAYMENT_LABEL[nextType]} proof</p>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-300 bg-sand-50 px-4 py-5 text-center cursor-pointer hover:border-spice-400 hover:bg-spice-50/40 transition-colors">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sand-300 bg-sand-50 px-4 py-5 text-center hover:border-spice-400 hover:bg-spice-50/40 transition-colors"
+              >
                 <div className="w-10 h-10 rounded-full bg-white border border-sand-200 text-spice-500 flex items-center justify-center">
                   <i className="fa-solid fa-upload"></i>
                 </div>
-                <span className="text-sm font-semibold text-spice-900">{file ? file.name : 'Tap to choose a file'}</span>
+                <span className="text-sm font-semibold text-spice-900 break-all px-2">{file ? file.name : 'Tap to choose a file'}</span>
                 <span className="text-xs text-spice-900/50">JPG, PNG, WebP, or PDF</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="sr-only"
-                />
-              </label>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="hidden"
+                tabIndex={-1}
+              />
               <Field label="Reference no. (optional)">
                 <input className="input-modern" placeholder="GCash / bank reference" value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} />
               </Field>

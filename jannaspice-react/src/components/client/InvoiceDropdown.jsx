@@ -37,7 +37,7 @@ export default function InvoiceDropdown({ reservation, onView }) {
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full mt-2 z-30 w-52 bg-white rounded-2xl border border-sand-200 shadow-soft p-1.5"
+          className="absolute left-0 bottom-full mb-2 z-50 w-52 bg-white rounded-2xl border border-sand-200 shadow-soft p-1.5"
         >
           <button
             type="button"
