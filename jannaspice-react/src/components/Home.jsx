@@ -26,10 +26,10 @@ export default function Home() {
     try {
       const result = await checkDateAvailability(heroDate);
       if (!result.available) {
-        setFeedback({ ok: false, msg: result.reason || 'Date is fully booked or unavailable.' });
+        setFeedback({ ok: false, msg: result.reason || 'This date is fully booked. JannaSpice only takes 2 events per day. Please pick another day.' });
         return;
       }
-      setFeedback({ ok: true, msg: `Date is available! (${result.remaining} slot(s) left)` });
+      setFeedback({ ok: true, msg: result.reason || `This date is open — ${result.remaining} of 2 spots left.` });
       const preselectedId = heroService === 'Equipment Rental' ? 1 : 2;
       setTimeout(() => startBookingFlow(preselectedId), 800);
     } catch (err) {

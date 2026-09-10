@@ -258,7 +258,7 @@ export default function DetailPanel() {
             </Banner>
           )}
 
-          {res.status === 'Approved' && res.paymentDueAt && !res.payments.fee && (
+          {(res.status === 'Reserved' || res.status === 'Approved') && res.paymentDueAt && !res.payments.fee && (
             <Banner tone="info" icon="fa-clock">
               Fee due {formatDueAt(res.paymentDueAt)}. Unpaid bookings auto-release.
             </Banner>
@@ -318,7 +318,7 @@ export default function DetailPanel() {
                   title="Approve booking"
                   hint="Review logistics, then lock the date"
                   done={approved}
-                  action={<button type="button" onClick={() => updateReservationStatus(res.id, 'Approved')} className="btn-primary btn-sm">Approve</button>}
+                  action={<button type="button" onClick={() => updateReservationStatus(res.id, 'Reserved')} className="btn-primary btn-sm">Approve</button>}
                 />
                 <MilestoneRow
                   index={2}

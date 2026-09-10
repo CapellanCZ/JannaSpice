@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { EmptyState, StatusBadge } from '../ui/index.jsx';
 
-const TABS = ['All', 'Pending', 'Approved', 'Reserved', 'DownpaymentVerified', 'FullyPaid'];
-const TAB_LABELS = { All: 'All', Pending: 'Pending', Approved: 'Approved', Reserved: 'Reserved', DownpaymentVerified: '50% Paid', FullyPaid: 'Fully Paid' };
+const TABS = ['All', 'Pending', 'Reserved', 'DownpaymentVerified', 'FullyPaid'];
+const TAB_LABELS = { All: 'All', Pending: 'Pending', Reserved: 'Reserved', DownpaymentVerified: '50% Paid', FullyPaid: 'Fully Paid' };
 
 export default function OperationsList({ searchQuery }) {
   const { reservationsQueue, openDetail } = useApp();

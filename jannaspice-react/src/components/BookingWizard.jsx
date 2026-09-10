@@ -24,6 +24,7 @@ export default function BookingWizard() {
   const [editingReservationId, setEditingReservationId] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [dateNote, setDateNote] = useState(null);
 
   const minDate = getMinDateString();
   const pkg = packages.find(p => p.id === selectedPackageId);
@@ -74,12 +75,35 @@ export default function BookingWizard() {
     };
   }, [reservationsQueue]);
 
+  useEffect(() => {
+    if (!form.date) {
+      setDateNote(null);
+      return undefined;
+    }
+    let cancelled = false;
+    checkDateAvailability(form.date, editingReservationId)
+      .then((result) => {
+        if (cancelled) return;
+        setDateNote({
+          ok: !!result.available,
+          msg: result.reason || (result.available
+            ? `This date is open — ${result.remaining} of 2 spots left.`
+            : 'This date is fully booked. JannaSpice only takes 2 events per day. Please pick another day.')
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setDateNote(null);
+      });
+    return () => { cancelled = true; };
+  }, [form.date, editingReservationId, checkDateAvailability]);
+
   function resetWizard() {
     setForm(emptyForm);
     setSelectedPackageId(packages.find((p) => p.type === 'promo')?.id || packages[0]?.id);
     setSelectedMenu({ chicken: '', beefPork: '', fishSeafood: '', veg: '', pasta: '' });
     setEditingReservationId(null);
     setErrors({});
+    setDateNote(null);
   }
 
   function set(field, val) { setForm(f => ({ ...f, [field]: val })); }
@@ -102,6 +126,10 @@ export default function BookingWizard() {
   }
 
   function goToStep(target) {
+    if (dateNote && !dateNote.ok) {
+      customAlert(dateNote.msg, 'That date is full', 'info');
+      return;
+    }
     if (target > 1 && !validateStep1()) {
       customAlert('Please complete all required Event Logistics fields properly.', 'Missing Details', 'error');
       return;
@@ -133,7 +161,11 @@ export default function BookingWizard() {
     try {
       const availability = await checkDateAvailability(form.date, editingReservationId);
       if (!availability.available) {
-        customAlert(availability.reason || 'Date is no longer available.', 'Slot Taken', 'error');
+        customAlert(
+          availability.reason || 'This date is fully booked. JannaSpice only takes 2 events per day so every celebration gets our full attention. Please pick another day.',
+          'That date is full',
+          'info'
+        );
         return;
       }
 
@@ -244,6 +276,10 @@ export default function BookingWizard() {
                       <div>
                         <label className="field-label">Date</label>
                         <input type="date" value={form.date} min={minDate} onChange={e => set('date', e.target.value)} className={`input-modern ${errors.date ? 'input-error' : ''}`} required />
+                        <p className="text-xs text-spice-900/45 mt-1.5">We host up to 2 events per day.</p>
+                        {dateNote && (
+                          <p className={`text-xs mt-1 ${dateNote.ok ? 'text-emerald-700' : 'text-spice-500'}`}>{dateNote.msg}</p>
+                        )}
                         {errors.date && <p className="field-error">{errors.date}</p>}
                       </div>
                       <div>

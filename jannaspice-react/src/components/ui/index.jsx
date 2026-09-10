@@ -45,7 +45,7 @@ export function IconButton({ onClick, label, icon = 'fa-xmark', className = '', 
 
 const STATUS_LABEL = {
   Pending: 'Pending',
-  Approved: 'Approved',
+  Approved: 'Reserved',
   Reserved: 'Reserved',
   DownpaymentVerified: '50% Paid',
   FullyPaid: 'Fully Paid',
@@ -55,7 +55,7 @@ const STATUS_LABEL = {
 export function StatusBadge({ status }) {
   const tone = {
     Pending: 'badge-pending',
-    Approved: 'badge-approved',
+    Approved: 'badge-reserved',
     Reserved: 'badge-reserved',
     DownpaymentVerified: 'badge-down',
     FullyPaid: 'badge-paid',

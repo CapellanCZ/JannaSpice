@@ -9,6 +9,7 @@ import * as catalogApi from '../features/catalog/index.js';
 import * as paymentsApi from '../features/payments/index.js';
 import { dispatchEmails } from '../features/emails/index.js';
 import { checkDateAvailability } from '../features/availability/index.js';
+import { isCapacityMessage } from '../lib/supabase/errors.js';
 import { markChatSeen } from '../utils/chatUnread.js';
 
 const AppContext = createContext(null);
@@ -443,7 +444,12 @@ export function AppProvider({ children }) {
       if (successAlert) customAlert(successAlert.message, successAlert.title, successAlert.type);
       return result;
     } catch (err) {
-      customAlert(err.message, 'Error', 'error');
+      const message = err.message || 'Something went wrong.';
+      if (isCapacityMessage(message)) {
+        customAlert(message, 'That date is full', 'info');
+      } else {
+        customAlert(message, 'Error', 'error');
+      }
       throw err;
     }
   }, [refreshReservations, refreshNotifications, currentUser, customAlert]);
