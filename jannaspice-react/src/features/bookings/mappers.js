@@ -1,3 +1,5 @@
+import { getSessionId } from '../analytics/index.js';
+
 function formatTime(value) {
   if (!value) return '';
   return String(value).slice(0, 5);
@@ -103,6 +105,8 @@ export function toCreateArgs(payload) {
     p_styro_avail: payload.styroAvail,
     p_styro_name: payload.styroName,
     p_package_id: payload.package.id,
-    p_menu: payload.menu
+    p_menu: payload.menu,
+    p_session_id: getSessionId(),
+    p_self_reported_source: payload.selfReportedSource || null
   };
 }

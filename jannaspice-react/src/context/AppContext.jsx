@@ -9,6 +9,7 @@ import * as catalogApi from '../features/catalog/index.js';
 import * as paymentsApi from '../features/payments/index.js';
 import { dispatchEmails } from '../features/emails/index.js';
 import { checkDateAvailability } from '../features/availability/index.js';
+import { bootstrapSession } from '../features/analytics/index.js';
 import { isCapacityMessage } from '../lib/supabase/errors.js';
 import { markChatSeen } from '../utils/chatUnread.js';
 
@@ -59,6 +60,10 @@ export function AppProvider({ children }) {
   const [catalogModal, setCatalogModal] = useState({ open: false });
   const [alertModal, setAlertModal] = useState({ open: false, message: '', title: 'Notice', type: 'info' });
   const alertCallback = useRef(null);
+
+  useEffect(() => {
+    bootstrapSession();
+  }, []);
 
   useEffect(() => {
     chatModalRef.current = chatModal;

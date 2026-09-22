@@ -9,8 +9,10 @@ const STEP_LABELS = ['Details', 'Package', 'Menu Setup', 'Submit'];
 const emptyForm = {
   eventTitle: '', eventType: '', eventTypeCustom: '', date: '', time: '15:00',
   venue: '', theme: '', centerpiece: 'Artificial Flowers', styroAvail: false, styroName: '',
-  clientName: '', clientPhone: '', clientEmail: ''
+  clientName: '', clientPhone: '', clientEmail: '', hearAboutUs: ''
 };
+
+const HEAR_ABOUT_OPTIONS = ['Facebook', 'TikTok', 'Zumba Community', 'Previous Customer', 'Friend/Family Referral', 'Other'];
 
 export default function BookingWizard() {
   const { switchAppView, requireAuth, currentUser, reservationsQueue, createReservation,
@@ -178,7 +180,7 @@ export default function BookingWizard() {
         eventTitle: form.eventTitle.trim(), eventType: evtType, date: form.date, startTime: form.time,
         venue: form.venue.trim(), theme: form.theme.trim() || 'N/A', centerpiece: form.centerpiece,
         styroAvail: form.styroAvail, styroName: form.styroAvail ? form.styroName.trim() : 'N/A',
-        package: pkg, menu
+        package: pkg, menu, selfReportedSource: form.hearAboutUs || null
       };
 
       if (editingReservationId) {
@@ -292,6 +294,13 @@ export default function BookingWizard() {
                       <label className="field-label">Venue Address (or specific area)</label>
                       <input type="text" value={form.venue} onChange={e => set('venue', e.target.value)} placeholder="Where will the event be held?" className={`input-modern ${errors.venue ? 'input-error' : ''}`} required />
                       {errors.venue && <p className="field-error">{errors.venue}</p>}
+                    </div>
+                    <div>
+                      <label className="field-label">How did you hear about JannaSpice?</label>
+                      <select value={form.hearAboutUs} onChange={e => set('hearAboutUs', e.target.value)} className="input-modern">
+                        <option value="">-- Select (optional) --</option>
+                        {HEAR_ABOUT_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
                     </div>
 
                     <div className="pt-4 border-t border-sand-200">
