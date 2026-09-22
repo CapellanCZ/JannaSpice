@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
+import { PAYMENT_ACCOUNT } from '../../features/payments/index.js';
 import { printReceipt } from '../../utils/printReceipt.js';
 import { Banner, Field, IconButton, ModalShell, StatusBadge } from '../ui/index.jsx';
 import {
   EventDetailsGrid,
   PAYMENT_LABEL,
   PackageMenuSection,
+  PaymentInstructions,
   PaymentOverview,
   formatDueAt
 } from '../booking/BookingDetailViews.jsx';
@@ -121,6 +123,7 @@ export default function ClientDetailModal() {
           {canUpload && (
             <form onSubmit={uploadProof} className="mt-4 space-y-3">
               <p className="text-sm font-semibold text-spice-900">Upload {PAYMENT_LABEL[nextType]} proof</p>
+              <PaymentInstructions account={PAYMENT_ACCOUNT} />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

@@ -1,4 +1,5 @@
 import { CONFIG } from '../data/data.js';
+import { PAYMENT_ACCOUNT } from '../features/payments/index.js';
 
 function esc(value) {
   return String(value ?? '')
@@ -81,6 +82,11 @@ export function buildReceiptHtml(res) {
           <tr style="border-bottom: 1px solid #E8E1D7;"><td style="padding: 8px 0;">30% Downpayment ${res.payments.down ? '<span style="color: green; font-size: 11px;">(Paid)</span>' : ''}</td><td style="text-align: right;">₱${down.toLocaleString()}</td></tr>
           <tr style="border-bottom: 1px solid #E8E1D7;"><td style="padding: 8px 0;">50% Final Balance ${res.payments.bal ? '<span style="color: green; font-size: 11px;">(Paid)</span>' : ''}</td><td style="text-align: right;">₱${bal.toLocaleString()}</td></tr>
         </table>
+        <div style="margin-top: 14px; background: #FDF8F6; border: 1px solid #EED3CA; border-radius: 8px; padding: 12px;">
+          <p style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; font-weight: 700;">Pay via ${esc(PAYMENT_ACCOUNT.method)}</p>
+          <p style="margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">${esc(PAYMENT_ACCOUNT.displayNumber)}</p>
+          <p style="margin: 2px 0 0 0; font-size: 13px; color: #555;">${esc(PAYMENT_ACCOUNT.accountName)}</p>
+        </div>
       </div>
 
       <div style="display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px; color: #666;">

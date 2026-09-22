@@ -159,6 +159,44 @@ export function PayStep({ label, amount, paid }) {
   );
 }
 
+export function PaymentInstructions({ account }) {
+  if (!account) return null;
+
+  const copyNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(account.number);
+    } catch {
+      /* ignore clipboard errors */
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-spice-200 bg-spice-50/60 px-4 py-3.5">
+      <p className="text-[10px] uppercase tracking-wider font-bold text-spice-900/45 mb-2">
+        Send payment via {account.method}
+      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-lg font-bold tracking-wide text-spice-900">{account.displayNumber}</p>
+          <p className="text-sm text-spice-900/70 mt-0.5">{account.accountName}</p>
+        </div>
+        <button
+          type="button"
+          onClick={copyNumber}
+          className="shrink-0 btn-secondary btn-sm !px-3"
+          title="Copy number"
+          aria-label="Copy GCash number"
+        >
+          <i className="fa-regular fa-copy"></i>
+        </button>
+      </div>
+      <p className="text-xs text-spice-900/50 mt-2.5">
+        Send the exact amount, then upload your screenshot below for verification.
+      </p>
+    </div>
+  );
+}
+
 export function PaymentOverview({ price, fee, down, bal, payments }) {
   const paidSteps = [payments.fee, payments.down, payments.bal].filter(Boolean).length;
   const paidTotal = (payments.fee ? fee : 0) + (payments.down ? down : 0) + (payments.bal ? bal : 0);

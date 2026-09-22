@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
+import { PAYMENT_ACCOUNT } from '../../features/payments/index.js';
+import { PaymentInstructions } from '../booking/BookingDetailViews.jsx';
 import { Banner, Field, StatusBadge } from '../ui/index.jsx';
 
 const PAYMENT_LABEL = { fee: '20% reservation fee', down: '30% downpayment', bal: '50% balance' };
@@ -269,6 +271,7 @@ export default function BookingCard({ reservation: res, onMessages, onRequestCha
           {canUpload && (
             <form onSubmit={uploadProof} className="mt-4 space-y-3">
               <p className="text-sm font-semibold text-spice-900">Upload {PAYMENT_LABEL[nextType]} proof</p>
+              <PaymentInstructions account={PAYMENT_ACCOUNT} />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

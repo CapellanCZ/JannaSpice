@@ -7,28 +7,42 @@ export function BrandMark({ icon = 'fa-utensils', size = 'md', className = '' })
   );
 }
 
-export function AppHeader({ icon, title, subtitle, children, onBrandClick, wide = false }) {
+export function AppHeader({ icon, title, subtitle, children, center = null, onBrandClick, wide = false }) {
   const brandClass = 'flex items-center gap-3 min-w-0 text-left rounded-xl';
   const brand = (
     <>
       <BrandMark icon={icon} />
       <div className="min-w-0">
         <h1 className="font-serif font-bold text-[17px] leading-none text-spice-900 truncate">{title}</h1>
-        {subtitle ? <p className="text-[11px] text-spice-900/50 mt-1 truncate">{subtitle}</p> : null}
+        {subtitle ? <p className="text-[11px] text-spice-900/50 mt-1 truncate hidden sm:block">{subtitle}</p> : null}
       </div>
     </>
   );
 
+  const brandNode = onBrandClick ? (
+    <button type="button" onClick={onBrandClick} className={`${brandClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spice-400`}>
+      {brand}
+    </button>
+  ) : (
+    <div className={brandClass}>{brand}</div>
+  );
+
+  if (center) {
+    return (
+      <header className="app-header">
+        <div className={`app-header-inner app-header-inner--centered ${wide ? '!max-w-none' : ''}`}>
+          <div className="justify-self-start min-w-0">{brandNode}</div>
+          <div className="hidden lg:flex justify-self-center px-2">{center}</div>
+          <div className="justify-self-end flex items-center justify-end gap-2 sm:gap-3 min-w-0">{children}</div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="app-header">
       <div className={`app-header-inner ${wide ? '!max-w-none' : ''}`}>
-        {onBrandClick ? (
-          <button type="button" onClick={onBrandClick} className={`${brandClass} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-spice-400`}>
-            {brand}
-          </button>
-        ) : (
-          <div className={brandClass}>{brand}</div>
-        )}
+        {brandNode}
         <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1">{children}</div>
       </div>
     </header>

@@ -1,17 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
-import { AppHeader } from './ui/index.jsx';
+import { MarketingFooter, MarketingHeader, useMarketingNav } from './marketing/SiteChrome.jsx';
+import StoriesSection from './marketing/StoriesSection.jsx';
 
 export default function Home() {
   const { currentUser, switchAppView, openAuthModal, handleLogout, requireAuth,
           getMinDateString, customAlert, checkDateAvailability, packages, openProfileModal } = useApp();
+  const { goTab } = useMarketingNav();
 
   const rental = packages.find((p) => p.type === 'rental');
   const promos = packages.filter((p) => p.type === 'promo').sort((a, b) => a.pax - b.pax);
   const promoLabels = ['Intimate', 'Standard', 'Grand'];
   const [heroDate, setHeroDate] = useState('');
   const [heroService, setHeroService] = useState('Promo Package');
-  const [feedback, setFeedback] = useState(null); // {ok, msg}
+  const [feedback, setFeedback] = useState(null);
+  const [navActive, setNavActive] = useState('home');
+
+  useEffect(() => {
+    const onSection = (e) => {
+      if (e.detail?.tab) setNavActive(e.detail.tab);
+    };
+    window.addEventListener('marketing-section', onSection);
+    return () => window.removeEventListener('marketing-section', onSection);
+  }, []);
 
   function startBookingFlow(presetPackageId = null) {
     requireAuth(() => {
@@ -39,22 +50,21 @@ export default function Home() {
 
   return (
     <div className="bg-sand-50 flex flex-col min-h-[100dvh]">
-      <AppHeader icon="fa-utensils" title="JannaSpice" subtitle="Cuisine" onBrandClick={() => switchAppView('home')}>
-        <a href="#packages" className="btn-ghost btn-sm hidden lg:inline-flex">Packages</a>
+      <MarketingHeader active={navActive}>
         {currentUser ? (
           <>
-            <span className="hidden md:inline text-sm font-medium text-spice-900/70">Hi, {(currentUser.name || 'there').split(' ')[0]}</span>
-            <button type="button" onClick={() => switchAppView('client-dashboard')} className="btn-ghost btn-sm hidden md:inline-flex">My bookings</button>
-            <button type="button" onClick={openProfileModal} className="btn-ghost btn-sm hidden md:inline-flex">Profile</button>
+            <span className="hidden lg:inline text-sm font-medium text-spice-900/70">Hi, {(currentUser.name || 'there').split(' ')[0]}</span>
+            <button type="button" onClick={() => switchAppView('client-dashboard')} className="btn-ghost btn-sm hidden lg:inline-flex">My bookings</button>
+            <button type="button" onClick={openProfileModal} className="btn-ghost btn-sm hidden lg:inline-flex">Profile</button>
             <button type="button" onClick={handleLogout} className="icon-btn" aria-label="Sign out"><i className="fa-solid fa-right-from-bracket"></i></button>
           </>
         ) : (
           <>
-            <button type="button" onClick={() => openAuthModal('login')} className="btn-ghost btn-sm hidden md:inline-flex">Log in</button>
+            <button type="button" onClick={() => openAuthModal('login')} className="btn-ghost btn-sm hidden sm:inline-flex">Log in</button>
             <button type="button" onClick={() => openAuthModal('signup')} className="btn-primary btn-sm">Sign up</button>
           </>
         )}
-      </AppHeader>
+      </MarketingHeader>
 
       <section id="hero" className="relative pt-12 pb-16 lg:pt-16 lg:pb-24 overflow-hidden px-6 lg:px-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -84,13 +94,13 @@ export default function Home() {
               <label className="field-label">When is your event?</label>
               <div className="relative">
                 <i className="fa-regular fa-calendar absolute left-4 top-1/2 -translate-y-1/2 text-spice-400 pointer-events-none z-10 text-base"></i>
-                <input 
-                  type="date" 
-                  value={heroDate} 
-                  min={getMinDateString()} 
-                  onChange={(e) => setHeroDate(e.target.value)} 
-                  className="input-modern !pl-12 pr-4 w-full" 
-                  required 
+                <input
+                  type="date"
+                  value={heroDate}
+                  min={getMinDateString()}
+                  onChange={(e) => setHeroDate(e.target.value)}
+                  className="input-modern !pl-12 pr-4 w-full"
+                  required
                 />
               </div>
             </div>
@@ -98,9 +108,9 @@ export default function Home() {
               <label className="field-label">What service do you need?</label>
               <div className="relative">
                 <i className="fa-solid fa-bell-concierge absolute left-4 top-1/2 -translate-y-1/2 text-spice-400 pointer-events-none z-10 text-base"></i>
-                <select 
-                  value={heroService} 
-                  onChange={(e) => setHeroService(e.target.value)} 
+                <select
+                  value={heroService}
+                  onChange={(e) => setHeroService(e.target.value)}
                   className="input-modern !pl-12 w-full"
                 >
                   <option value="Promo Package">Full Promo Package</option>
@@ -120,7 +130,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="packages" className="py-24 bg-white relative w-full">
+      <section id="packages" className="py-24 bg-white relative w-full scroll-mt-28">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-16">
             <span className="text-spice-500 font-semibold tracking-wider uppercase text-sm mb-2 block">Our Services</span>
@@ -162,26 +172,12 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-spice-900 text-white py-16 border-t border-spice-900 mt-auto w-full">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
-          <div>
-            <span className="text-2xl font-serif font-bold text-white block mb-2">JannaSpice Cuisine</span>
-            <p className="text-spice-100/60 text-sm font-light">Food catering, rent tables, chairs, and party needs.</p>
-          </div>
-          <div>
-            <h4 className="font-bold text-spice-400 mb-4 uppercase tracking-wider text-sm">Inquiries: Jhoanna</h4>
-            <ul className="space-y-2 text-sm text-spice-100/80 font-light">
-              <li><i className="fa-solid fa-phone w-5"></i> 0966 687 8302 / 0992 637 0100</li>
-              <li><i className="fa-brands fa-facebook w-5"></i> Janna Spice Cuisine Catering Services</li>
-              <li><i className="fa-solid fa-location-dot w-5"></i> Blk 4 Lot 4 Chester Place Subd, Dasma</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-spice-400 mb-4 uppercase tracking-wider text-sm">System Details</h4>
-            <p className="text-sm text-spice-100/80 font-light leading-relaxed">CuiZin Mobile Management System<br />Developed by: SECA Team</p>
-          </div>
-        </div>
-      </footer>
+      <StoriesSection
+        onBook={() => startBookingFlow()}
+        onViewPackages={() => goTab('packages')}
+      />
+
+      <MarketingFooter />
     </div>
   );
 }

@@ -25,6 +25,26 @@ body {
   .app-header-inner {
     @apply max-w-7xl mx-auto w-full px-5 sm:px-6 lg:px-8 h-16 lg:h-[72px] flex items-center justify-between gap-4;
   }
+  .app-header-inner--centered {
+    @apply grid grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3;
+  }
+
+  .marketing-nav {
+    @apply flex items-center justify-center gap-0.5 overflow-x-auto no-scrollbar py-2 lg:py-0 max-w-full;
+  }
+  .marketing-nav-tab {
+    @apply relative shrink-0 px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm font-medium text-spice-900/55 rounded-xl transition-colors;
+  }
+  .marketing-nav-tab:hover {
+    @apply text-spice-900 bg-sand-100/80;
+  }
+  .marketing-nav-tab.is-active {
+    @apply text-spice-600;
+  }
+  .marketing-nav-tab.is-active::after {
+    content: '';
+    @apply absolute left-2.5 right-2.5 sm:left-3 sm:right-3 bottom-0.5 lg:bottom-1 h-0.5 rounded-full bg-spice-500;
+  }
 
   .field-label {
     @apply block text-sm font-medium text-spice-900 mb-1.5;
@@ -294,6 +314,12 @@ body {
 .img-card { overflow: hidden; border-radius: 1rem; }
 .img-card img { transition: transform .7s ease; }
 .img-card:hover img { transform: scale(1.05); }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #F7F3EE; }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext.jsx';
 import { rentalInclusions, menuCategoryMeta } from '../data/data.js';
+import { PAYMENT_ACCOUNT } from '../features/payments/index.js';
 import { AppHeader, Banner } from './ui/index.jsx';
 
 const STEP_LABELS = ['Details', 'Package', 'Menu Setup', 'Submit'];
@@ -455,7 +456,7 @@ export default function BookingWizard() {
                           <div><p className="text-[10px] uppercase font-bold text-spice-900/50">Down (30%)</p><p className="font-bold text-spice-900 text-sm">₱{quote.down.toLocaleString()}</p></div>
                           <div><p className="text-[10px] uppercase font-bold text-spice-900/50">Balance (50%)</p><p className="font-bold text-spice-900 text-sm">₱{quote.bal.toLocaleString()}</p></div>
                         </div>
-                        <p className="text-xs text-spice-900/50 mt-3 text-center">*After owner approval, upload your 20% reservation fee proof in My Bookings within 48 hours to lock the date.</p>
+                        <p className="text-xs text-spice-900/50 mt-3 text-center">*After owner approval, pay via {PAYMENT_ACCOUNT.method} to <span className="font-semibold text-spice-900/70">{PAYMENT_ACCOUNT.displayNumber} ({PAYMENT_ACCOUNT.accountName})</span>, then upload your 20% fee proof in My Bookings within 48 hours.</p>
                       </div>
                     </div>
                   </div>
