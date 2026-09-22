@@ -2,10 +2,39 @@ import { supabase } from '../../lib/supabase/client.js';
 import { getErrorMessage } from '../../lib/supabase/errors.js';
 import { mapReservation, toCreateArgs } from './mappers.js';
 
+const CHAT_BUCKET = 'chat-attachments';
+const CHAT_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+];
+const CHAT_MAX_BYTES = 8 * 1024 * 1024;
+
 async function callRpc(fn, args) {
   const { data, error } = await supabase.rpc(fn, args);
   if (error) throw new Error(getErrorMessage(error));
   return data;
+}
+
+function safeFileName(file) {
+  const raw = String(file?.name || 'file');
+  const cleaned = raw.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+  return cleaned || 'file';
+}
+
+export function isChatImage(mime) {
+  return String(mime || '').startsWith('image/');
+}
+
+export async function getChatAttachmentUrl(storagePath) {
+  if (!storagePath) return null;
+  const { data, error } = await supabase.storage.from(CHAT_BUCKET).createSignedUrl(storagePath, 60 * 30);
+  if (error) throw new Error(getErrorMessage(error, 'Could not open attachment.'));
+  return data?.signedUrl || null;
 }
 
 export async function listReservations() {
@@ -61,12 +90,54 @@ export async function rejectChangeRequest(reservationId) {
   return mapReservation(data);
 }
 
-export async function sendMessage(reservationId, text) {
-  const data = await callRpc('send_reservation_message', {
-    p_reservation_id: reservationId,
-    p_text: text
-  });
-  return mapReservation(data);
+export async function sendMessage(reservationId, { text = '', file = null } = {}) {
+  const body = String(text || '').trim();
+  let attachmentPath = null;
+  let attachmentName = null;
+  let attachmentMime = null;
+  let attachmentSize = null;
+
+  if (file) {
+    if (!CHAT_ALLOWED_TYPES.includes(file.type)) {
+      throw new Error('Use a JPG, PNG, WEBP, PDF, or Word file.');
+    }
+    if (file.size > CHAT_MAX_BYTES) {
+      throw new Error('File must be 8 MB or smaller.');
+    }
+
+    attachmentPath = `${reservationId}/${Date.now()}-${safeFileName(file)}`;
+    attachmentName = file.name || 'attachment';
+    attachmentMime = file.type;
+    attachmentSize = file.size;
+
+    const { error: uploadError } = await supabase.storage.from(CHAT_BUCKET).upload(attachmentPath, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type
+    });
+    if (uploadError) throw new Error(getErrorMessage(uploadError, 'Could not upload file.'));
+  }
+
+  if (!body && !attachmentPath) {
+    throw new Error('Type a message or attach a file.');
+  }
+
+  try {
+    const data = await callRpc('send_reservation_message', {
+      p_reservation_id: reservationId,
+      p_text: body,
+      p_attachment_path: attachmentPath,
+      p_attachment_name: attachmentName,
+      p_attachment_mime: attachmentMime,
+      p_attachment_size: attachmentSize
+    });
+    return mapReservation(data);
+  } catch (err) {
+    if (attachmentPath) {
+      await supabase.storage.from(CHAT_BUCKET).remove([attachmentPath]).catch(() => {});
+    }
+    throw err;
+  }
 }
 
 export async function requestCancellation(reservationId) {

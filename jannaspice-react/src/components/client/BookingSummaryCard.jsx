@@ -1,5 +1,4 @@
 import { Banner, StatusBadge } from '../ui/index.jsx';
-import InvoiceDropdown from './InvoiceDropdown.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { countUnreadFromOther } from '../../utils/chatUnread.js';
 
@@ -141,7 +140,10 @@ export default function BookingSummaryCard({
             </span>
           )}
         </button>
-        <InvoiceDropdown reservation={r} onView={onViewInvoice} />
+        <button type="button" onClick={() => onViewInvoice?.(r)} className="btn-secondary btn-sm">
+          <i className="fa-solid fa-file-lines"></i>
+          Invoice
+        </button>
         {r.status !== 'Cancelled' && (
           <button type="button" onClick={onRequestChanges} className="btn-secondary btn-sm">
             <i className="fa-solid fa-pen text-[10px]"></i>

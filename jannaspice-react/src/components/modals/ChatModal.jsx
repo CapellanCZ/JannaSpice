@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
+import { isChatImage } from '../../features/bookings/index.js';
 import { IconButton, ModalShell } from '../ui/index.jsx';
+
+const ACCEPT =
+  'image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 function dayLabel(iso) {
   if (!iso) return '';
@@ -31,13 +35,97 @@ function buildThread(messages) {
   return items;
 }
 
+function formatBytes(n) {
+  const size = Number(n) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentBubble({ message, isMe, getChatAttachmentUrl }) {
+  const [url, setUrl] = useState(message.previewUrl || null);
+  const [loading, setLoading] = useState(false);
+  const isImage = isChatImage(message.attachmentMime) || (message.file && message.file.type?.startsWith('image/'));
+
+  useEffect(() => {
+    if (message.previewUrl) {
+      setUrl(message.previewUrl);
+      return undefined;
+    }
+    if (!message.attachmentPath) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    getChatAttachmentUrl(message.attachmentPath)
+      .then((signed) => {
+        if (!cancelled) setUrl(signed);
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [message.attachmentPath, message.previewUrl, getChatAttachmentUrl]);
+
+  if (isImage) {
+    return (
+      <div className={`overflow-hidden rounded-xl ${isMe ? 'bg-spice-600/30' : 'bg-sand-50'} border ${isMe ? 'border-white/20' : 'border-sand-200'}`}>
+        {url ? (
+          <a href={url} target="_blank" rel="noreferrer" className="block">
+            <img src={url} alt={message.attachmentName || 'Attachment'} className="max-h-56 w-full object-cover" />
+          </a>
+        ) : (
+          <div className={`h-36 flex items-center justify-center text-xs ${isMe ? 'text-white/70' : 'text-spice-900/45'}`}>
+            {loading ? 'Loading image…' : 'Image unavailable'}
+          </div>
+        )}
+        {message.attachmentName ? (
+          <p className={`px-2.5 py-1.5 text-[11px] truncate ${isMe ? 'text-white/75' : 'text-spice-900/55'}`}>
+            {message.attachmentName}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={url || undefined}
+      target={url ? '_blank' : undefined}
+      rel={url ? 'noreferrer' : undefined}
+      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 border ${
+        isMe
+          ? 'bg-spice-600/25 border-white/20 text-white hover:bg-spice-600/40'
+          : 'bg-sand-50 border-sand-200 text-spice-900 hover:bg-sand-100'
+      } ${!url ? 'pointer-events-none opacity-70' : ''}`}
+    >
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isMe ? 'bg-white/15' : 'bg-white border border-sand-200'}`}>
+        <i className={`fa-solid fa-file-lines ${isMe ? 'text-white' : 'text-spice-500'}`}></i>
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">{message.attachmentName || 'Attachment'}</p>
+        <p className={`text-[11px] ${isMe ? 'text-white/65' : 'text-spice-900/45'}`}>
+          {loading ? 'Opening…' : formatBytes(message.attachmentSize)}
+        </p>
+      </div>
+    </a>
+  );
+}
+
 export default function ChatModal() {
-  const { chatModal, closeChat, reservationsQueue, sendMessage, currentUser, markReservationChatRead } = useApp();
+  const {
+    chatModal, closeChat, reservationsQueue, sendMessage, currentUser,
+    markReservationChatRead, getChatAttachmentUrl, customAlert
+  } = useApp();
   const [text, setText] = useState('');
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [sending, setSending] = useState(false);
   const [pending, setPending] = useState([]);
   const scrollRef = useRef(null);
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const res = chatModal.open ? reservationsQueue.find((r) => r.id === chatModal.resId) : null;
   const role = chatModal.role;
@@ -46,19 +134,36 @@ export default function ChatModal() {
 
   const messages = useMemo(() => {
     const ids = new Set(serverMessages.map((m) => m.id));
-    const extras = pending.filter((p) => !ids.has(p.id) && p.text);
+    const extras = pending.filter((p) => !ids.has(p.id) && (p.text || p.attachmentPath || p.previewUrl));
     return [...serverMessages, ...extras];
   }, [serverMessages, pending]);
 
   const thread = useMemo(() => buildThread(messages), [messages]);
+  const canSend = Boolean(text.trim() || file) && !sending;
 
   useEffect(() => {
     if (!chatModal.open) {
       setText('');
+      setFile(null);
+      setPreviewUrl(null);
       setPending([]);
       setSending(false);
     }
   }, [chatModal.open, chatModal.resId]);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return undefined;
+    }
+    if (!file.type.startsWith('image/')) {
+      setPreviewUrl(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   useEffect(() => {
     if (!chatModal.open || !res) return;
@@ -79,16 +184,32 @@ export default function ChatModal() {
     ? (currentUser?.name || res.name || 'You').split(' ')[0]
     : 'You';
 
-  async function submit(e) {
-    e.preventDefault();
-    const body = text.trim();
-    if (!body || sending) return;
-    setText('');
-    await deliver(body);
+  function pickFile(e) {
+    const next = e.target.files?.[0] || null;
+    e.target.value = '';
+    if (!next) return;
+    if (next.size > 8 * 1024 * 1024) {
+      customAlert('File must be 8 MB or smaller.', 'Too large', 'error');
+      return;
+    }
+    setFile(next);
   }
 
-  async function deliver(body, existingTempId = null) {
+  async function submit(e) {
+    e.preventDefault();
+    if (!canSend) return;
+    const body = text.trim();
+    const attach = file;
+    setText('');
+    setFile(null);
+    await deliver(body, attach);
+  }
+
+  async function deliver(body, attach = null, existingTempId = null) {
     const tempId = existingTempId || `temp-${Date.now()}`;
+    const localPreview = attach && attach.type?.startsWith('image/')
+      ? URL.createObjectURL(attach)
+      : null;
 
     if (!existingTempId) {
       setPending((list) => [
@@ -99,7 +220,14 @@ export default function ChatModal() {
           text: body,
           timestamp: 'Sending…',
           createdAt: new Date().toISOString(),
-          pending: true
+          pending: true,
+          attachmentName: attach?.name || null,
+          attachmentMime: attach?.type || null,
+          attachmentSize: attach?.size || null,
+          previewUrl: localPreview,
+          file: attach,
+          _retryBody: body,
+          _retryFile: attach
         }
       ]);
     } else {
@@ -113,12 +241,12 @@ export default function ChatModal() {
     }
 
     setSending(true);
-    const result = await sendMessage(res.id, role, body);
+    const result = await sendMessage(res.id, role, body, attach);
     setSending(false);
 
     if (result?.ok) {
-      // Real message arrives via refresh; drop this optimistic row.
       setPending((list) => list.filter((m) => m.id !== tempId));
+      if (localPreview) URL.revokeObjectURL(localPreview);
       return;
     }
 
@@ -174,7 +302,7 @@ export default function ChatModal() {
             </div>
             <h4 className="font-serif font-bold text-lg text-spice-900">No messages yet</h4>
             <p className="text-sm text-spice-900/50 mt-1 max-w-xs">
-              Say hello below — replies show up here in real time.
+              Say hello below — you can also send photos or files.
             </p>
           </div>
         ) : (
@@ -194,6 +322,7 @@ export default function ChatModal() {
 
               const isMe = item.sender === role;
               const senderName = isMe ? myLabel : peerName;
+              const hasAttachment = Boolean(item.attachmentPath || item.previewUrl || item.file);
               return (
                 <div key={item.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div
@@ -209,21 +338,34 @@ export default function ChatModal() {
                       {item.timestamp ? ` · ${item.timestamp}` : ''}
                     </span>
                     <div
-                      className={`px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                        item.failed
-                          ? 'bg-red-50 text-red-700 border border-red-200 rounded-2xl'
-                          : isMe
-                            ? 'bg-spice-500 text-white rounded-2xl rounded-br-md shadow-sm'
-                            : 'bg-white border border-sand-200 text-spice-900 rounded-2xl rounded-bl-md shadow-sm'
+                      className={`space-y-2 ${
+                        item.text
+                          ? `px-3.5 py-2.5 text-sm leading-relaxed ${
+                              item.failed
+                                ? 'bg-red-50 text-red-700 border border-red-200 rounded-2xl'
+                                : isMe
+                                  ? 'bg-spice-500 text-white rounded-2xl rounded-br-md shadow-sm'
+                                  : 'bg-white border border-sand-200 text-spice-900 rounded-2xl rounded-bl-md shadow-sm'
+                            }`
+                          : ''
                       } ${item.pending ? 'opacity-70' : ''}`}
                     >
-                      {item.text}
+                      {hasAttachment ? (
+                        <AttachmentBubble
+                          message={item}
+                          isMe={isMe}
+                          getChatAttachmentUrl={getChatAttachmentUrl}
+                        />
+                      ) : null}
+                      {item.text ? (
+                        <p className="whitespace-pre-wrap break-words">{item.text}</p>
+                      ) : null}
                     </div>
                     {item.failed && (
                       <button
                         type="button"
                         className="text-[10px] font-semibold text-spice-500 mt-1 px-1 hover:underline"
-                        onClick={() => deliver(item.text, item.id)}
+                        onClick={() => deliver(item._retryBody || item.text, item._retryFile || null, item.id)}
                         disabled={sending}
                       >
                         Tap to retry
@@ -239,7 +381,49 @@ export default function ChatModal() {
       </div>
 
       <footer className="bg-white p-3 sm:p-4 border-t border-sand-200 shrink-0">
+        {file ? (
+          <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-sand-200 bg-sand-50 px-2.5 py-2">
+            {previewUrl ? (
+              <img src={previewUrl} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-white border border-sand-200 flex items-center justify-center text-spice-500 shrink-0">
+                <i className="fa-solid fa-file-lines"></i>
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-spice-900 truncate">{file.name}</p>
+              <p className="text-[11px] text-spice-900/45">{formatBytes(file.size)}</p>
+            </div>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Remove attachment"
+              onClick={() => setFile(null)}
+              disabled={sending}
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        ) : null}
+
         <form onSubmit={submit} className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT}
+            className="hidden"
+            onChange={pickFile}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="icon-btn shrink-0"
+            aria-label="Attach photo or file"
+            disabled={sending}
+            title="Attach photo or file"
+          >
+            <i className="fa-solid fa-paperclip"></i>
+          </button>
           <input
             type="text"
             value={text}
@@ -251,7 +435,7 @@ export default function ChatModal() {
           />
           <button
             type="submit"
-            disabled={!text.trim() || sending}
+            disabled={!canSend}
             className="bg-spice-500 text-white w-11 h-11 rounded-full flex items-center justify-center hover:bg-spice-600 transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
             aria-label="Send"
           >
@@ -259,7 +443,7 @@ export default function ChatModal() {
           </button>
         </form>
         <p className="text-[10px] text-spice-900/35 mt-2 px-1">
-          Messages sync instantly for you and {peerName}.
+          Photos, PDF, or Word · up to 8 MB · syncs instantly with {peerName}.
         </p>
       </footer>
     </ModalShell>

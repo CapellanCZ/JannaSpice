@@ -8,6 +8,8 @@ export {
   approveChangeRequest,
   rejectChangeRequest,
   sendMessage,
+  getChatAttachmentUrl,
+  isChatImage,
   requestCancellation,
   confirmCancellation,
   rejectCancellation,

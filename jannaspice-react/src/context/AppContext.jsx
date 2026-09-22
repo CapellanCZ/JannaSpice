@@ -539,9 +539,9 @@ export function AppProvider({ children }) {
     }
   }, [refreshCatalog, customAlert]);
 
-  const sendMessage = useCallback(async (resId, _role, text) => {
+  const sendMessage = useCallback(async (resId, _role, text, file = null) => {
     try {
-      await bookingsApi.sendMessage(resId, text);
+      await bookingsApi.sendMessage(resId, { text, file });
       try {
         await refreshReservations();
       } catch {
@@ -602,6 +602,7 @@ export function AppProvider({ children }) {
     cancelReservation, logPayment, approveChangeRequest, rejectChangeRequest, sendMessage,
     requestCancellation, confirmCancellation, rejectCancellation,
     submitPaymentProof, reviewPaymentProof, getProofSignedUrl: paymentsApi.getProofSignedUrl,
+    getChatAttachmentUrl: bookingsApi.getChatAttachmentUrl,
     nextPaymentType: paymentsApi.nextPaymentType, pendingProofFor: paymentsApi.pendingProofFor,
     savePackage, saveMenuItem, refreshCatalog,
     blackoutDates, addBlackout, deleteBlackout,

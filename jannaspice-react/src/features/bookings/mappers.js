@@ -8,11 +8,15 @@ function mapMessage(row) {
   return {
     id: row.id,
     sender: row.sender,
-    text: row.body ?? row.text,
+    text: row.body ?? row.text ?? '',
     timestamp: row.timestamp || (createdAt
       ? new Date(createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       : ''),
-    createdAt
+    createdAt,
+    attachmentPath: row.attachmentPath || row.attachment_path || null,
+    attachmentName: row.attachmentName || row.attachment_name || null,
+    attachmentMime: row.attachmentMime || row.attachment_mime || null,
+    attachmentSize: row.attachmentSize ?? row.attachment_size ?? null
   };
 }
 
